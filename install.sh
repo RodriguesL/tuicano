@@ -1,4 +1,8 @@
 #!/bin/sh
+# NOTE: this installer downloads the desktop app from upstream Tucano's releases
+# (github.com/eduwxyz/tucano), not from this fork: TUIcano publishes no desktop
+# builds. For the terminal client, run scripts/install-tui.sh.
+#
 # Installs or updates Tucano:
 #   curl -fsSL https://github.com/eduwxyz/tucano/releases/latest/download/install.sh | sh
 #

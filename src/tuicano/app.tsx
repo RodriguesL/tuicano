@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Box, Text, useApp, useInput, useWindowSize } from 'ink'
 import { writeConfig } from './config'
+import { L } from '../shared/lang'
 import { APPROVAL_KEYS, CONVERSATION_KEYS, GLOBAL_KEYS, LATER_KEYS, PICKER_KEYS, type KeyHelp } from './keys'
 import { runtime } from './runtime'
 import { findTheme } from './theme'
@@ -158,14 +159,17 @@ export function TuiApp(): ReactNode {
         return
       }
     },
-    { isActive: !overlay && !help && !image }
+    // Only the overlay host takes the keyboard away: it has its own handler (Esc, and
+    // the forms inside it). The help and the image viewer are *this* handler's to
+    // close, so switching it off for them would leave both unclosable.
+    { isActive: !overlay }
   )
 
   const status = ((): string => {
     if (note) return note
     if (composer !== null) return `> ${composer}`
-    const where = view.kind === 'conversation' ? 'conversation' : view.kind
-    return `${protocolLabel(runtime.protocol)} ${Math.round(runtime.cell.pxW)}x${Math.round(runtime.cell.pxH)}px · ${theme.name} · ${unreadTotal(state)} unread · ${where} · ${focus} · ? help`
+    const where = view.kind === 'conversation' ? L('conversa', 'conversation') : view.kind
+    return `${protocolLabel(runtime.protocol)} ${Math.round(runtime.cell.pxW)}x${Math.round(runtime.cell.pxH)}px · ${theme.name} · ${unreadTotal(state)} ${L('não lidas', 'unread')} · ${where} · ${focus} · ? ${L('ajuda', 'help')}`
   })()
 
   if (image) return <>{image}</>
@@ -183,7 +187,7 @@ export function TuiApp(): ReactNode {
               onTheme={(name) => {
                 setThemeName(name)
                 writeConfig(runtime.dataDir, { theme: name })
-                setNote(`theme: ${name}`)
+                setNote(L(`tema: ${name}`, `theme: ${name}`))
               }}
             />
           ) : intro ? (
@@ -241,7 +245,7 @@ function Help(): ReactNode {
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={t.borderFocus} paddingX={1}>
       <Text bold color={t.heading}>
-        TUIcano — keys
+        {L('TUIcano — teclas', 'TUIcano — keys')}
       </Text>
       {groups.map((group, g) => (
         <Box key={g} flexDirection="column">
@@ -253,7 +257,7 @@ function Help(): ReactNode {
           ))}
         </Box>
       ))}
-      <Text color={t.faint}>Esc closes this. Every key on the parity matrix is documented in docs/spec-tuicano.md §5.</Text>
+      <Text color={t.faint}>{L('Esc fecha isto. Toda tecla da matriz de paridade está documentada em docs/spec-tuicano.md §5.', 'Esc closes this. Every key on the parity matrix is documented in docs/spec-tuicano.md §5.')}</Text>
     </Box>
   )
 }

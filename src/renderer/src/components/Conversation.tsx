@@ -1,6 +1,6 @@
 import { L } from '../../../shared/lang'
-import { CODE_SPANS } from '../../../shared/types'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { CODE_SPANS, type Receipt } from '../../../shared/types'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -274,7 +274,7 @@ function MessageRow({ message, grouped }: { message: Message; grouped: boolean }
             {L('Tentar de novo', 'Try again')}
           </button>
         )}
-        {message.run?.receipt && <ReceiptLine receipt={message.run.receipt} />}
+        {message.run?.receipt && <ReceiptLine receipt={message.run.receipt} receipts={message.run.receipts} />}
       </div>
     </article>
   )
@@ -549,33 +549,64 @@ function StepRow({ step }: { step: Step }): ReactNode {
   )
 }
 
-function ReceiptLine({ receipt }: { receipt: NonNullable<NonNullable<Message['run']>['receipt']> }): ReactNode {
+function ReceiptLine({ receipt, receipts }: { receipt: NonNullable<NonNullable<Message['run']>['receipt']>; receipts?: Receipt[] }): ReactNode {
   const model = useStore((s) => modelById(s, receipt.model))
   const [open, setOpen] = useState(false)
-  const total = countedTokens(receipt)
+  // A reply that ran several turns (a retry, a continuation): one row per turn
+  // and a total, like the terminal (spec §9).
+  const turns = receipts && receipts.length > 1 ? receipts : undefined
+  const all = turns ?? [receipt]
+  const total = all.reduce((n, r) => n + countedTokens(r), 0)
+  const ms = all.reduce((n, r) => n + r.ms, 0)
+  const cost = all.reduce((n, r) => n + (r.apiCostUsd ?? 0), 0)
+  const priced = all.some((r) => r.apiCostUsd !== undefined)
   return (
     <div className="receipt">
       <button className="receipt__line" onClick={() => setOpen(!open)} title={L('Ver recibo', 'See receipt')}>
-        {model?.label ?? receipt.model} · {tokens(total)} tokens · {duration(receipt.ms)}
+        {turns ? L(`${turns.length} turnos`, `${turns.length} turns`) : (model?.label ?? receipt.model)} · {tokens(total)} tokens · {duration(ms)}
       </button>
-      {open && (
-        <dl className="receipt__table">
-          <dt>{L('Entrada', 'Input')}</dt>
-          <dd>{tokens(receipt.inputTokens - receipt.cacheReadTokens)}</dd>
-          <dt title={L('Ler do cache custa cerca de um décimo: conta 10% no limite.', 'Reading from cache costs about a tenth: it counts 10% toward the limit.')}>{L('Do cache (conta 10%)', 'From cache (counts 10%)')}</dt>
-          <dd>{tokens(receipt.cacheReadTokens)}</dd>
-          <dt>{L('Saída', 'Output')}</dt>
-          <dd>{tokens(receipt.outputTokens)}</dd>
-          <dt>{L('Motor', 'Engine')}</dt>
-          <dd>{model ? ENGINES[model.engine].label : '—'}</dd>
-          {receipt.apiCostUsd !== undefined && (
-            <>
-              <dt title={L('O que esse uso custaria na API. Na assinatura, não é cobrado.', 'What this usage would cost on the API. On a subscription, you aren’t billed.')}>{L('Equivalente na API', 'API equivalent')}</dt>
-              <dd>{usd(receipt.apiCostUsd)}</dd>
-            </>
-          )}
-        </dl>
-      )}
+      {open &&
+        (turns ? (
+          <dl className="receipt__table">
+            {turns.map((r, i) => (
+              <Fragment key={i}>
+                <dt>
+                  {i + 1} · {model?.label ?? r.model}
+                </dt>
+                <dd>
+                  {tokens(countedTokens(r))} · {duration(r.ms)}
+                  {r.apiCostUsd !== undefined ? ` · ${usd(r.apiCostUsd)}` : ''}
+                </dd>
+              </Fragment>
+            ))}
+            <dt>
+              <strong>{L('Total', 'Total')}</strong>
+            </dt>
+            <dd>
+              <strong>
+                {tokens(total)} · {duration(ms)}
+                {priced ? ` · ${usd(cost)}` : ''}
+              </strong>
+            </dd>
+          </dl>
+        ) : (
+          <dl className="receipt__table">
+            <dt>{L('Entrada', 'Input')}</dt>
+            <dd>{tokens(receipt.inputTokens - receipt.cacheReadTokens)}</dd>
+            <dt title={L('Ler do cache custa cerca de um décimo: conta 10% no limite.', 'Reading from cache costs about a tenth: it counts 10% toward the limit.')}>{L('Do cache (conta 10%)', 'From cache (counts 10%)')}</dt>
+            <dd>{tokens(receipt.cacheReadTokens)}</dd>
+            <dt>{L('Saída', 'Output')}</dt>
+            <dd>{tokens(receipt.outputTokens)}</dd>
+            <dt>{L('Motor', 'Engine')}</dt>
+            <dd>{model ? ENGINES[model.engine].label : '—'}</dd>
+            {receipt.apiCostUsd !== undefined && (
+              <>
+                <dt title={L('O que esse uso custaria na API. Na assinatura, não é cobrado.', 'What this usage would cost on the API. On a subscription, you aren’t billed.')}>{L('Equivalente na API', 'API equivalent')}</dt>
+                <dd>{usd(receipt.apiCostUsd)}</dd>
+              </>
+            )}
+          </dl>
+        ))}
     </div>
   )
 }

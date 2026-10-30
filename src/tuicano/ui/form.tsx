@@ -3,6 +3,7 @@
 // arrows change a value or whether Ctrl+S saves.
 import { Box, Text, useInput } from 'ink'
 import { useRef, useState, type ReactNode } from 'react'
+import { L } from '../../shared/lang'
 import { useTheme } from '../theme/context'
 import { backspace, ctrlKey, del, edit, end, home, insert, killAfter, killBefore, killWord, left, right, window, type Edit } from './input'
 import { CURSOR, Field, Segmented } from './kit'
@@ -163,7 +164,7 @@ export function Form({ title, fields, onSubmit, onCancel, submitLabel = 'Enter',
           {f.kind === 'select' ? (
             <Segmented options={f.options ?? []} value={f.value} onChange={(v) => f.onChange?.(v)} focused={i === at} />
           ) : f.kind === 'toggle' ? (
-            <Segmented options={[{ value: 'on', label: 'on' }, { value: 'off', label: 'off' }]} value={f.value} onChange={(v) => f.onChange?.(v)} focused={i === at} />
+            <Segmented options={[{ value: 'on', label: L('ligado', 'on') }, { value: 'off', label: L('desligado', 'off') }]} value={f.value} onChange={(v) => f.onChange?.(v)} focused={i === at} />
           ) : f.kind === 'action' ? (
             <Text color={i === at ? t.accent : t.dim} bold={i === at}>{`[ ${f.value} ]`}</Text>
           ) : (
@@ -173,10 +174,10 @@ export function Form({ title, fields, onSubmit, onCancel, submitLabel = 'Enter',
       ))}
       {error ? <Text color={t.danger}>{error}</Text> : null}
       <Text color={t.faint}>
-        <Text color={t.dim}>{busy ? 'working…' : `${submitLabel} saves`}</Text>
-        {'  ·  Esc cancels  ·  Tab next field  ·  ↑↓ moves  ·  Ctrl+S saves'}
+        <Text color={t.dim}>{busy ? L('salvando…', 'working…') : L(`${submitLabel} salva`, `${submitLabel} saves`)}</Text>
+        {L('  ·  Esc cancela  ·  Tab próximo campo  ·  ↑↓ move  ·  Ctrl+S salva', '  ·  Esc cancels  ·  Tab next field  ·  ↑↓ moves  ·  Ctrl+S saves')}
       </Text>
-      {at < fields.length - 1 ? <Text color={t.faint}>{`${CURSOR} Enter on the last field saves`}</Text> : null}
+      {at < fields.length - 1 ? <Text color={t.faint}>{L(`${CURSOR} Enter no último campo salva`, `${CURSOR} Enter on the last field saves`)}</Text> : null}
     </Box>
   )
 }

@@ -10,6 +10,7 @@ import { Box, Text, useInput } from 'ink'
 import { agentById, browserOf, useAppState } from '../store'
 import { store } from '../store'
 import { computerOf } from '../../app/store'
+import { L, locale } from '../../shared/lang'
 import { useOverlay } from '../overlays/api'
 import { useTheme } from '../theme/context'
 import { runtime } from '../runtime'
@@ -66,28 +67,28 @@ function ArtifactPanel({ artifact }: { artifact: Artifact | undefined }): ReactN
   useInput((input) => {
     if (input !== 'o' || !a) return
     if (isUrl) store.openExternal(a.source)
-    else overlay.note('nothing to open externally — this is a file inside the computer')
+    else overlay.note(L('nada para abrir externamente — isto é um arquivo dentro do computador', 'nothing to open externally — this is a file inside the computer'))
   })
 
-  if (!a) return <Text color={t.faint}>File not found.</Text>
+  if (!a) return <Text color={t.faint}>{L('Arquivo não encontrado.', 'File not found.')}</Text>
   return (
     <Box flexDirection="column">
       <Text bold color={t.heading}>{a.title}</Text>
       <Text color={t.dim}>{`${a.kind} · ${a.name} · ${bytes(a.size)}`}</Text>
-      <Text color={t.faint}>{`source: ${a.source}`}</Text>
+      <Text color={t.faint}>{L(`origem: ${a.source}`, `source: ${a.source}`)}</Text>
       {a.kind === 'image' ? (
         prepared?.canDrawImages ? (
           // Drawn outside Ink, full screen; Esc (the host) closes the panel (§2.4).
           <ImageOverlay prepared={prepared} cell={runtime.cell} />
         ) : (
-          <Text color={t.placeholder}>{prepared ? prepared.fallback() : '[image — could not read the file]'}</Text>
+          <Text color={t.placeholder}>{prepared ? prepared.fallback() : L('[imagem — não deu para ler o arquivo]', '[image — could not read the file]')}</Text>
         )
       ) : TEXT_KINDS.has(a.kind) ? (
-        <Text color={t.text}>{text !== null ? text.slice(0, 4_000) : '(could not open the file)'}</Text>
+        <Text color={t.text}>{text !== null ? text.slice(0, 4_000) : L('(não deu para abrir o arquivo)', '(could not open the file)')}</Text>
       ) : (
         <Text color={t.dim}>
-          {a.kind === 'video' ? 'A video has no terminal preview.' : a.kind === 'pdf' ? 'A PDF opens in the system reader.' : 'No preview for this kind of file.'}
-          {isUrl ? ' o opens it externally.' : ''}
+          {a.kind === 'video' ? L('Um vídeo não tem prévia no terminal.', 'A video has no terminal preview.') : a.kind === 'pdf' ? L('Um PDF abre no leitor do sistema.', 'A PDF opens in the system reader.') : L('Sem prévia para este tipo de arquivo.', 'No preview for this kind of file.')}
+          {isUrl ? L(' o abre externamente.', ' o opens it externally.') : ''}
         </Text>
       )}
       <Hint keys={isUrl ? [['o', 'open externally'], ['Esc', 'close']] : [['Esc', 'close']]} />
@@ -105,23 +106,23 @@ function ServicePanel({ agentId, name }: { agentId: string; name: string }): Rea
   useInput((input) => {
     if (input === 's' && selected) {
       store.stopService(agentId, selected.name)
-      overlay.note(`stopping ${selected.name}`)
+      overlay.note(L(`parando ${selected.name}`, `stopping ${selected.name}`))
       return
     }
     if (input === 'o' && selected?.url) {
       store.openExternal(selected.url)
       return
     }
-    if (input === 'o') overlay.note('this service has no URL to open')
+    if (input === 'o') overlay.note(L('este serviço não tem URL para abrir', 'this service has no URL to open'))
   })
 
-  if (!services.length) return <Text color={t.faint}>This agent's computer is not running any service.</Text>
+  if (!services.length) return <Text color={t.faint}>{L('O computador deste agente não está rodando nenhum serviço.', 'This agent\'s computer is not running any service.')}</Text>
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{`Services of ${agentById(state, agentId)?.name ?? 'agent'}`}</Text>
+      <Text bold color={t.heading}>{L(`Serviços de ${agentById(state, agentId)?.name ?? L('agente', 'agent')}`, `Services of ${agentById(state, agentId)?.name ?? 'agent'}`)}</Text>
       {services.map((s) => (
         <Text key={s.name} color={s.name === name ? t.text : t.dim} inverse={s.name === name}>
-          {`${s.name === name ? `${CURSOR} ` : '  '}${s.name} · ${s.running ? 'running' : 'stopped'} · port ${s.port}`}
+          {`${s.name === name ? `${CURSOR} ` : '  '}${s.name} · ${s.running ? L('no ar', 'running') : L('parado', 'stopped')} · ${L('porta', 'port')} ${s.port}`}
           {s.url ? <Text color={t.faint}>{`  ${s.url}`}</Text> : null}
         </Text>
       ))}
@@ -130,14 +131,14 @@ function ServicePanel({ agentId, name }: { agentId: string; name: string }): Rea
   )
 }
 
-const logClock = (at: number): string => new Date(at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+const logClock = (at: number): string => new Date(at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
 function BrowserPanel({ agentId }: { agentId: string }): ReactNode {
   const t = useTheme()
   const overlay = useOverlay()
   const state = useAppState()
   const view = browserOf(state, agentId)
-  const name = agentById(state, agentId)?.name ?? 'agent'
+  const name = agentById(state, agentId)?.name ?? L('agente', 'agent')
   const frame = view?.frame
   const prepared: Prepared | null = useMemo(() => {
     const pic = frame ? pictureOfDataUrl(frame) : null
@@ -156,34 +157,34 @@ function BrowserPanel({ agentId }: { agentId: string }): ReactNode {
     if (input === 'X') {
       // Clearing wipes the browser's logins, so it asks first (spec §3.1 #39).
       return overlay.confirm({
-        title: `Clear ${name}'s browser?`,
-        detail: 'This deletes its logins and history; it will have to sign in again.',
-        yes: 'clear',
+        title: L(`Limpar o navegador de ${name}?`, `Clear ${name}'s browser?`),
+        detail: L('Isto apaga os logins e o histórico dele; ele vai ter que entrar de novo.', 'This deletes its logins and history; it will have to sign in again.'),
+        yes: L('limpar', 'clear'),
         onYes: () => store.browserAction(agentId, 'clear')
       })
     }
   })
 
-  if (!view) return <Text color={t.faint}>{`${name} has no browser open.`}</Text>
+  if (!view) return <Text color={t.faint}>{L(`${name} não tem navegador aberto.`, `${name} has no browser open.`)}</Text>
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{view.title || view.url || `${name}'s browser`}</Text>
-      <Text color={t.dim}>{`${view.url} · ${view.shown ? 'you are in control' : 'the agent is driving'}`}</Text>
-      {view.doing ? <Text color={t.working}>{`now: ${view.doing.label} ${view.doing.detail}`}</Text> : null}
-      {view.log.length || view.doing ? <Text color={t.faint}>what it did (oldest first):</Text> : null}
+      <Text bold color={t.heading}>{view.title || view.url || L(`navegador de ${name}`, `${name}'s browser`)}</Text>
+      <Text color={t.dim}>{`${view.url} · ${view.shown ? L('você está no controle', 'you are in control') : L('o agente está dirigindo', 'the agent is driving')}`}</Text>
+      {view.doing ? <Text color={t.working}>{L(`agora: ${view.doing.label} ${view.doing.detail}`, `now: ${view.doing.label} ${view.doing.detail}`)}</Text> : null}
+      {view.log.length || view.doing ? <Text color={t.faint}>{L('o que ele fez (mais antigo primeiro):', 'what it did (oldest first):')}</Text> : null}
       {view.log.map((l, i) => (
         <Text key={`${l.at}-${i}`} color={t.dim}>{`  ${logClock(l.at)}  ${l.label} ${l.detail}`}</Text>
       ))}
-      {!view.log.length && !view.doing ? <Text color={t.faint}>Nothing yet.</Text> : null}
+      {!view.log.length && !view.doing ? <Text color={t.faint}>{L('Nada ainda.', 'Nothing yet.')}</Text> : null}
       {frame ? (
         prepared?.canDrawImages ? (
           // The live frame, outside Ink and full screen (§2.4); Esc closes the panel.
           <ImageOverlay prepared={prepared} cell={runtime.cell} />
         ) : (
-          <Text color={t.placeholder}>{prepared ? prepared.fallback() : '[live frame — could not read it]'}</Text>
+          <Text color={t.placeholder}>{prepared ? prepared.fallback() : L('[quadro ao vivo — não deu para ler]', '[live frame — could not read it]')}</Text>
         )
       ) : (
-        <Text color={t.faint}>No page is drawn right now.</Text>
+        <Text color={t.faint}>{L('Nenhuma página sendo desenhada agora.', 'No page is drawn right now.')}</Text>
       )}
       <Hint keys={[['s', 'take over'], ['h', 'hide'], ['X', 'clear logins'], ['Esc', 'close']]} />
     </Box>

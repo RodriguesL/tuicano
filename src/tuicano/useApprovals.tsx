@@ -4,6 +4,7 @@
 // screen and the card inside a conversation, so both behave identically.
 import { useState } from 'react'
 import type { Approval } from '../shared/types'
+import { L } from '../shared/lang'
 import { store } from './store'
 import { useOverlay } from './overlays/api'
 import { gateIntent, type GateKey } from './approvals'
@@ -22,19 +23,19 @@ export function useApprovalGate(): { armed: string | undefined; press: (approval
     setArmed(null)
     if (intent.kind === 'ask-reason') {
       overlay.prompt({
-        title: `Refuse ${a.tool}?`,
-        label: 'Reason (optional)',
-        hint: 'The agent is told why, and can propose another way.',
+        title: L(`Recusar ${a.tool}?`, `Refuse ${a.tool}?`),
+        label: L('Motivo (opcional)', 'Reason (optional)'),
+        hint: L('O agente é avisado por quê, e pode propor outro caminho.', 'The agent is told why, and can propose another way.'),
         onSubmit: (text) => {
           store.decideApproval(a.id, 'refused', text.trim() || undefined)
-          overlay.note(`refused: ${a.tool}`)
+          overlay.note(L(`recusado: ${a.tool}`, `refused: ${a.tool}`))
         },
         onCancel: () => overlay.note(undefined)
       })
       return
     }
     store.decideApproval(a.id, 'approved', undefined, intent.always)
-    overlay.note(`${intent.always ? 'always allowed' : 'approved'}: ${a.tool}`)
+    overlay.note(L(`${intent.always ? 'sempre permitido' : 'aprovado'}: ${a.tool}`, `${intent.always ? 'always allowed' : 'approved'}: ${a.tool}`))
   }
 
   return { armed: armed?.id, press }

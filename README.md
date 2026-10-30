@@ -22,6 +22,11 @@ keyboard, inside the multiplexer you already live in.
 
 ## What this fork is
 
+**Attribution.** TUIcano is a fork of [Tucano](https://github.com/eduwxyz/tucano), by
+[eduwxyz](https://github.com/eduwxyz) and its contributors. It carries changes, and is distributed
+under the same licence, Apache-2.0. The original project and its authors are credited here and in
+the [NOTICE](NOTICE) file, which lists the areas this fork modified or added.
+
 Tucano is an Electron app for a team of AI agents that run on the harnesses you already have installed
 and signed in. This fork takes the part that does the work — the core: SQLite, the engines, the runs,
 the MCP gateway, approvals, memory, routines — and puts a terminal in front of it.
@@ -40,6 +45,10 @@ possible:
 `docs/spec-tuicano.md` carries the **parity contract**: all 66 `Api` methods, 18 events, 12 views, 16
 components and 9 host services, each mapped to the key that reaches it and the phase that delivers it.
 That document is the definition of "the same features" — arguments about it belong there.
+
+This fork is **independent**: it keeps upstream as a fetch-only remote for reference and does not
+intend to merge it, so the commits and the branch are the fork's own. Upstream is credited, and the
+modified areas are listed in [NOTICE](NOTICE), as Apache-2.0 asks.
 
 ### Why a terminal
 
@@ -175,4 +184,5 @@ mechanism).
 
 Apache-2.0, as upstream. Tucano is [eduwxyz's](https://github.com/eduwxyz/tucano); TUIcano is this
 fork's terminal client. The name, the icon and the idea stay theirs — this is a fork, not a
-replacement.
+replacement. The attribution Apache-2.0 asks for, and the areas this fork changed, are in
+[NOTICE](NOTICE).

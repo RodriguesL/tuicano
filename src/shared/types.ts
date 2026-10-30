@@ -133,6 +133,10 @@ export interface Run {
   status: RunStatus
   steps: Step[]
   receipt?: Receipt
+  // Every turn of this reply, oldest first (spec §9): a reply can span several
+  // turns (a retry, a continuation), each with its own receipt row. `receipt`
+  // stays as the last one, for readers that only want a summary.
+  receipts?: Receipt[]
   approvalId?: string
   error?: string
   depth?: number // 1 when a human message triggered it, +1 for each agent-to-agent hop
@@ -658,6 +662,13 @@ export interface AgentReport {
   approvals: { asked: number; refused: number }
   avgTokens: number // counted, per reply
   avgMs: number
+  // The week's turns, summed in dollars; absent when no engine reported a cost
+  // (only Claude Code does), so the report can say "no cost reported" instead
+  // of showing US$ 0.00 (spec §9, §21).
+  apiUsd?: number
+  // The active skills this agent proposed (Skill.proposedBy, spec §18). Nesting
+  // them under the agent keeps the renderer's per-agent pass a single loop.
+  proposedSkills?: { skillId: string; name: string }[]
   problems: Problem[] // the week's latest, newest first
   weeks: { start: number; rate: Rate; avgTokens: number }[] // the six weeks up to this one, oldest first
 }

@@ -3,6 +3,7 @@
 // does not require switching to it — and Enter writes the choice to the config.
 import { Box, Text, useInput } from 'ink'
 import { useState, type ReactNode } from 'react'
+import { L } from '../../shared/lang'
 import { THEMES } from '../theme'
 import { useTheme } from '../theme/context'
 import { CURSOR } from '../ui/kit'
@@ -25,7 +26,9 @@ export function ThemePicker({ current, onPick, onClose }: { current?: string; on
   return (
     <Box flexDirection="column">
       <Text color={t.dim}>
-        ↑↓ moves · Enter picks · Esc closes. The choice is kept in <Text color={t.text}>tuicano.config.json</Text> next to your data.
+        {L('↑↓ move · Enter escolhe · Esc fecha. A escolha fica em ', '↑↓ moves · Enter picks · Esc closes. The choice is kept in ')}
+        <Text color={t.text}>tuicano.config.json</Text>
+        {L(' ao lado dos seus dados.', ' next to your data.')}
       </Text>
       {THEMES.map((th, i) => {
         const selected = i === at
@@ -34,7 +37,7 @@ export function ThemePicker({ current, onPick, onClose }: { current?: string; on
             {`${selected ? `${CURSOR} ` : '  '}${th.name.padEnd(22)}`}
             <Text color={th.kind === 'light' ? th.dim : th.faint}>{`${th.kind.padEnd(6)}`}</Text>
             {[th.accent, th.accentAlt, th.me, th.routine, th.working, th.done, th.danger, th.agent.teal, th.agent.rose].map(swatch)}
-            <Text color={th.dim}>{`  ${th.name === current ? 'in use' : th.origin}`}</Text>
+            <Text color={th.dim}>{`  ${th.name === current ? L('em uso', 'in use') : th.origin}`}</Text>
           </Text>
         )
       })}

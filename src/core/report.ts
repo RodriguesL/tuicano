@@ -31,6 +31,15 @@ export function report(db: Db, now = Date.now(), week = weekStart(now)): Report 
   const replies = all.filter((m) => m.at >= week)
   const approvals = db.approvals().filter((a) => a.createdAt >= week && a.createdAt < until)
   const weekAt = (i: number): number => plusWeeks(week, i - (WEEKS - 1))
+  // The week's turns, for the cost (spec §9): only engines that report one have
+  // a price, so an agent with none gets no apiUsd, not US$ 0.00.
+  const weekReceipts = db.receiptsSince(week).filter((r) => r.at < until)
+  // Skills an agent proposed (spec §18), by agent, from the ones still active.
+  const proposed = new Map<string, { skillId: string; name: string }[]>()
+  for (const k of db.skills()) {
+    if (k.state !== 'active' || !k.proposedBy) continue
+    proposed.set(k.proposedBy, [...(proposed.get(k.proposedBy) ?? []), { skillId: k.id, name: k.name }])
+  }
 
   const agents: AgentReport[] = db
     .agents()
@@ -45,6 +54,7 @@ export function report(db: Db, now = Date.now(), week = weekStart(now)): Report 
       const cut = mine.filter((m) => CUT.test(m.run!.error ?? ''))
       const paused = mine.filter((m) => m.run!.status === 'paused' || m.run!.budget !== undefined)
       const refused = asked.filter((x) => x.state === 'refused')
+      const priced = weekReceipts.filter((r) => r.agentId === a.id && r.apiCostUsd !== undefined)
       const problems: Problem[] = [
         ...failed.map((m) => ({ kind: 'failed' as const, at: m.at, conversationId: m.conversationId, messageId: m.id, detail: m.run!.error })),
         ...cut.map((m) => ({ kind: 'cut' as const, at: m.at, conversationId: m.conversationId, messageId: m.id, detail: m.run!.error })),
@@ -62,6 +72,8 @@ export function report(db: Db, now = Date.now(), week = weekStart(now)): Report 
         approvals: { asked: asked.length, refused: refused.length },
         avgTokens: avg(costs.map((c) => c.tokens)),
         avgMs: avg(costs.map((c) => c.ms)),
+        ...(priced.length ? { apiUsd: priced.reduce((n, r) => n + (r.apiCostUsd ?? 0), 0) } : {}),
+        proposedSkills: proposed.get(a.id) ?? [],
         problems,
         weeks: Array.from({ length: WEEKS }, (_, i) => {
           const w = history.filter((m) => m.at >= weekAt(i) && m.at < weekAt(i + 1))

@@ -1,5 +1,9 @@
 # Tucano's site
 
+> **Upstream site.** This is upstream Tucano's marketing page, kept in the tree as reference. It is
+> served by upstream at `tucano.sh`, this fork does not deploy it, and every download and GitHub
+> link here points at upstream ([eduwxyz/tucano](https://github.com/eduwxyz/tucano)).
+
 Live at **[tucano.sh](https://tucano.sh)**. A single static page: `index.html` (CSS and JS inline) and `assets/`. No build step.
 
 - **Preview:** open `index.html` in a browser. `index.html?shot` shows everything at once (for screenshots).

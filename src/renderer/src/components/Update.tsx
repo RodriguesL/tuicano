@@ -5,6 +5,8 @@ import { L } from '../../../shared/lang'
 import type { UpdateState } from '../../../shared/types'
 import { ago } from './ui'
 
+// Upstream's releases: this fork publishes no desktop builds, and the window in this
+// tree is upstream's, so its "what's new" link has to point where its versions live.
 const RELEASES = 'https://github.com/eduwxyz/tucano/releases'
 
 let current: UpdateState | null = null

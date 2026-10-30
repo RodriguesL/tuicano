@@ -1037,6 +1037,10 @@ export class Runner {
         ? { model: agent.modelId, ms, inputTokens: progress.tokens, cacheReadTokens: progress.cacheRead, outputTokens: 0 } // partial: what the stream reported before it ended
         : undefined
     if (receipt) db.addReceipt({ ...receipt, messageId: msg.id, agentId: agent.id, engine: engineId, at: Date.now(), work })
+    // Every turn of this reply so far, so the re-emit at the end of each turn
+    // carries all of them, not only the last (spec §9).
+    const allReceipts = db.receiptsFor(msg.id)
+    const receipts = allReceipts.length ? allReceipts : undefined
     const usedNow = db.usedThisMonth(agent.id)
     if (used < agent.limit * USAGE_ALERT && usedNow >= agent.limit * USAGE_ALERT && usedNow < agent.limit) {
       const pct = `${Math.floor((usedNow / agent.limit) * 100)}%`
@@ -1054,7 +1058,7 @@ export class Runner {
       )
     }
 
-    const base = { depth: opts.depth, work, receipt, question, approvalId: approval?.id, memoryIds: memoryIds.length ? memoryIds : undefined, artifactIds: artifactIds.length ? artifactIds : undefined, services: services.length ? services : undefined, routineIds: routineIds.length ? routineIds : undefined, browser: msg.run?.browser, agentDraft: msg.run?.agentDraft }
+    const base = { depth: opts.depth, work, receipt, receipts, question, approvalId: approval?.id, memoryIds: memoryIds.length ? memoryIds : undefined, artifactIds: artifactIds.length ? artifactIds : undefined, services: services.length ? services : undefined, routineIds: routineIds.length ? routineIds : undefined, browser: msg.run?.browser, agentDraft: msg.run?.agentDraft }
     if (control.reason === 'stopped') {
       save({ run: { ...base, status: 'stopped', steps: closeThinking('error', L('Parado', 'Stopped')) } })
     } else if (control.reason === 'loop' || control.reason === 'errors' || control.reason === 'stall') {

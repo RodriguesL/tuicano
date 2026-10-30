@@ -1,5 +1,9 @@
 # Changelog
 
+> **Upstream releases.** The versions below are upstream Tucano's, and their links point at
+> upstream ([eduwxyz/tucano](https://github.com/eduwxyz/tucano)), which is where those releases and
+> pull requests live. This fork publishes no releases of its own.
+
 What changed in each version of Tucano. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org) (while in 0.x, a minor version may change things). Each section is also the release's notes on GitHub, which is what the app's "What's new" link opens.
 
 ## [0.2.0] - 2026-10-30

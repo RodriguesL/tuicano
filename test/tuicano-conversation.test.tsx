@@ -3,6 +3,7 @@
 // reach the store. The state is built from real CoreEvents through the same reduce
 // the client runs, so these are the shapes the core actually sends.
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ReactNode } from 'react'
 import { Conversation } from '../src/tuicano/screens/Conversation'
 import { store } from '../src/tuicano/store'
 import { agent, approval, artifact, channel, KEY, memory, message, mount, routine, stateOf } from './helpers/screen'
@@ -71,6 +72,13 @@ const go = async (m: ReturnType<typeof mount>, n: number): Promise<void> => {
     m.press(KEY.down)
     await tick()
   }
+}
+
+// A sheet's content is a render function; render it the way the host would.
+const renderSheet = (mounted: ReturnType<typeof mount>, title?: string): ReactNode => {
+  const sheet = mounted.overlay.calls.find((c) => c.kind === 'sheet' && (!title || c.title === title))
+  if (!sheet) throw new Error('no sheet was opened')
+  return (sheet.value as { render: (close: () => void) => ReactNode }).render(() => {})
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -211,5 +219,62 @@ describe('the conversation screen', () => {
     await tick()
     expect(retry).toHaveBeenCalledWith('m2')
     m2.unmount()
+  })
+
+  it('t lists one row per turn and a total when a reply ran several turns', async () => {
+    const first = { model: 'sonnet', inputTokens: 1000, cacheReadTokens: 0, outputTokens: 50, ms: 1000 }
+    const second = { model: 'opus', inputTokens: 2000, cacheReadTokens: 0, outputTokens: 80, ms: 2000 }
+    const state = stateOf(
+      { type: 'agent', agent: agent({ id: 'a1', name: 'Lia' }) },
+      { type: 'conversation', conversation: channel({ id: 'c1', members: ['a1'] }) },
+      { type: 'message', message: message({ id: 'm1', conversationId: 'c1', author: { kind: 'agent', id: 'a1' }, text: 'duas partes', at: 2, run: { status: 'done', steps: [], receipt: second, receipts: [first, second] } }) }
+    )
+    const m = mount(() => <Conversation state={state} active id="c1" onImage={() => {}} />)
+    m.press('t')
+    await tick()
+    const view = mount(() => renderSheet(m, 'Receipt'))
+    const frame = view.frame()
+    expect(frame).toContain('1 · Sonnet')
+    expect(frame).toContain('2 · Opus')
+    expect(frame).toContain('Total')
+    view.unmount()
+    m.unmount()
+  })
+
+  it('←/→ moves a sub-cursor, and a opens the artifact it is on', async () => {
+    const state = stateOf(
+      { type: 'agent', agent: agent({ id: 'a1', name: 'Lia' }) },
+      { type: 'conversation', conversation: channel({ id: 'c1', members: ['a1'] }) },
+      { type: 'message', message: message({ id: 'm1', conversationId: 'c1', author: { kind: 'agent', id: 'a1' }, text: 'dois', at: 2, run: { status: 'done', steps: [], artifactIds: ['ar1', 'ar2'] } }) },
+      { type: 'artifact', artifact: artifact({ id: 'ar1', kind: 'image', name: 'a.png' }) },
+      { type: 'artifact', artifact: artifact({ id: 'ar2', kind: 'image', name: 'b.png' }) }
+    )
+    const m = mount(() => <Conversation state={state} active id="c1" onImage={() => {}} />)
+    m.press(KEY.right)
+    await tick()
+    expect(m.frame()).toContain('› [image b.png]')
+    m.press('a')
+    await tick()
+    const panel = m.overlay.calls.find((c) => c.kind === 'panel')
+    expect(panel?.value).toEqual({ kind: 'artifact', id: 'ar2' })
+    m.unmount()
+  })
+
+  it('y decides the pending memory the sub-cursor is on, not the first', async () => {
+    const decide = vi.spyOn(store, 'decideMemory').mockImplementation(() => {})
+    const state = stateOf(
+      { type: 'agent', agent: agent({ id: 'a1', name: 'Lia' }) },
+      { type: 'conversation', conversation: channel({ id: 'c1', members: ['a1'] }) },
+      { type: 'message', message: message({ id: 'm1', conversationId: 'c1', author: { kind: 'agent', id: 'a1' }, text: 'duas memorias', at: 2, run: { status: 'done', steps: [], memoryIds: ['me1', 'me2'] } }) },
+      { type: 'memory', memory: memory({ id: 'me1', state: 'pending', text: 'primeira' }) },
+      { type: 'memory', memory: memory({ id: 'me2', state: 'pending', text: 'segunda' }) }
+    )
+    const m = mount(() => <Conversation state={state} active id="c1" onImage={() => {}} />)
+    m.press(KEY.right)
+    await tick()
+    m.press('y')
+    await tick()
+    expect(decide).toHaveBeenCalledWith('me2', true)
+    m.unmount()
   })
 })

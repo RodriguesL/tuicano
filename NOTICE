@@ -1,0 +1,21 @@
+TUIcano
+Copyright 2026 RodriguesL (https://github.com/RodriguesL/tuicano)
+
+This product is derived from Tucano (https://github.com/eduwxyz/tucano),
+Copyright the Tucano authors, licensed under the Apache License, Version 2.0.
+See LICENSE.
+
+TUIcano adds a terminal client for Tucano's core, and the seam that lets the
+terminal client and the Electron app share that one core.
+
+Areas modified or added relative to upstream Tucano:
+
+- src/core                  the host boundary: Electron's process.parentPort moved behind src/host
+- src/app                   new: the shared application layer
+- src/tuicano               new: the terminal client
+- src/host                  new
+- src/renderer/src/store.ts now a thin adapter
+- src/shared                additions
+- docs/spec-tuicano.md      new
+- scripts/install-tui.sh    new
+- package.json

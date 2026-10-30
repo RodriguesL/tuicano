@@ -1,5 +1,11 @@
 # Contributing to Tucano
 
+> **Upstream guide.** This is upstream Tucano's contributing guide for the Electron app and the
+> shared core, and the clone link below points at upstream
+> ([eduwxyz/tucano](https://github.com/eduwxyz/tucano)). This fork develops the terminal client:
+> see the [fork README](README.md) and `scripts/install-tui.sh`. A change to the core shared with
+> upstream still follows this guide.
+
 Thanks for wanting to help. Tucano is a small codebase on purpose: an Electron app, a core process with SQLite, and the coding-agent CLIs people already use. This guide gets you from clone to pull request.
 
 ## Setup

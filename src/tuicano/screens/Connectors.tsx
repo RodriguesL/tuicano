@@ -4,6 +4,7 @@
 import { useState, type ReactNode } from 'react'
 import { Box, Text, useInput } from 'ink'
 import { store } from '../store'
+import { L } from '../../shared/lang'
 import { useOverlay, type ScreenProps } from '../overlays/api'
 import { useTheme } from '../theme/context'
 import { Hint, Table } from '../ui/kit'
@@ -12,15 +13,18 @@ import type { Connector, ConnectorAuth, ConnectorStatus, HarnessMcp, ToolClass }
 
 const CLASSES: ToolClass[] = ['read', 'write', 'sensitive']
 
-const STATUS: Record<ConnectorStatus, string> = {
-  connected: 'authorized',
-  connecting: 'connecting…',
-  needs_auth: 'needs reconnecting',
-  disconnected: 'needs reconnecting',
-  error: 'error'
-}
+// The GUI's own words for a connector's status (Pages.tsx); the same here. Built
+// where it is used, not in a module constant, because the language isn't known yet
+// when this module loads (CONTRIBUTING.md).
+const STATUS = (): Record<ConnectorStatus, string> => ({
+  connected: L('conectado', 'connected'),
+  connecting: L('conectando…', 'connecting…'),
+  needs_auth: L('precisa autorizar', 'needs authorization'),
+  disconnected: L('desconectado', 'disconnected'),
+  error: L('com problema', 'having trouble')
+})
 
-const KIND = (c: Connector): string => (c.kind === 'stdio' ? 'local' : 'remote')
+const KIND = (c: Connector): string => (c.kind === 'stdio' ? L('local', 'local') : L('remoto', 'remote'))
 
 // "a b 'c d'" → ["a", "b", "c d"], the same split the window's form uses.
 const splitArgs = (line: string): string[] => [...line.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]!)
@@ -48,10 +52,10 @@ export function Connectors({ state, active }: ScreenProps): ReactNode {
       .catch((e: unknown) => setMcp({ list: [], error: e instanceof Error ? e.message : String(e) }))
   }
 
-  const add = (): void => overlay.sheet({ title: 'New connector', render: (close) => <AddConnector close={close} /> })
+  const add = (): void => overlay.sheet({ title: L('Novo conector', 'New connector'), render: (close) => <AddConnector close={close} /> })
 
   const remove = (c: Connector): void =>
-    overlay.confirm({ title: `Remove ${c.name}?`, detail: 'The agents lose access to its tools.', yes: 'remove', onYes: () => store.removeConnector(c.id) })
+    overlay.confirm({ title: L(`Remover ${c.name}?`, `Remove ${c.name}?`), detail: L('Os agentes perdem acesso às ferramentas dele.', 'The agents lose access to its tools.'), yes: L('remover', 'remove'), onYes: () => store.removeConnector(c.id) })
 
   const cycleClass = (name: string, cls: ToolClass, connectorId: string): void => {
     const next = CLASSES[(CLASSES.indexOf(cls) + 1) % CLASSES.length]!
@@ -67,7 +71,7 @@ export function Connectors({ state, active }: ScreenProps): ReactNode {
         if (key.downArrow || input === 'j') return setMcpCursor(Math.min((mcp.list.length || 1) - 1, mcpAt + 1))
         if (key.return) {
           const m = mcp.list[mcpAt]
-          if (!m || m.added) return overlay.note(m ? `${m.name} is already a connector` : 'nothing to import')
+          if (!m || m.added) return overlay.note(m ? L(`${m.name} já é um conector`, `${m.name} is already a connector`) : L('nada para importar', 'nothing to import'))
           store
             .importHarnessMcp(m.key)
             .then((id) => (setMcp(null), setOpenId(id)))
@@ -105,7 +109,7 @@ export function Connectors({ state, active }: ScreenProps): ReactNode {
       if (input === 'c') return store.reconnectConnector(c.id)
       if (input === 'A') {
         store.authorizeConnector(c.id)
-        return overlay.note(`authorizing ${c.name} in the browser…`)
+        return overlay.note(L(`autorizando ${c.name} no navegador…`, `authorizing ${c.name} in the browser…`))
       }
     },
     { isActive: active }
@@ -114,16 +118,16 @@ export function Connectors({ state, active }: ScreenProps): ReactNode {
   if (mcp) {
     return (
       <Box flexDirection="column">
-        <Text bold color={t.heading}>{'MCP servers in your harnesses'}</Text>
+        <Text bold color={t.heading}>{L('Nos seus harnesses', 'In your harnesses')}</Text>
         {mcp.error ? <Text color={t.danger}>{mcp.error}</Text> : null}
-        {!mcp.list.length && !mcp.error ? <Text color={t.faint}>Looking…</Text> : null}
+        {!mcp.list.length && !mcp.error ? <Text color={t.faint}>{L('Procurando…', 'Looking…')}</Text> : null}
         <Table
           columns={[
-            { key: 'name', label: 'Server' },
+            { key: 'name', label: L('Servidor', 'Server') },
             { key: 'harness', label: 'Harness' },
-            { key: 'added', label: 'Added' }
+            { key: 'added', label: L('Adicionado', 'Added') }
           ]}
-          rows={mcp.list.map((m) => ({ name: m.name, harness: m.harnesses.join(', '), added: m.added ? 'yes' : '' }))}
+          rows={mcp.list.map((m) => ({ name: m.name, harness: m.harnesses.join(', '), added: m.added ? L('sim', 'yes') : '' }))}
           cursor={mcpAt}
           active={active}
         />
@@ -135,16 +139,16 @@ export function Connectors({ state, active }: ScreenProps): ReactNode {
   if (open) {
     return (
       <Box flexDirection="column">
-        <Text bold color={t.heading}>{`${open.name} · ${KIND(open)} · ${STATUS[open.status]}`}</Text>
+        <Text bold color={t.heading}>{`${open.name} · ${KIND(open)} · ${STATUS()[open.status]}`}</Text>
         {open.error ? <Text color={t.danger}>{open.error}</Text> : null}
         <Table
           columns={[
-            { key: 'name', label: 'Tool' },
-            { key: 'cls', label: 'Class' },
-            { key: 'on', label: 'On' },
-            { key: 'risk', label: 'High risk' }
+            { key: 'name', label: L('Ferramenta', 'Tool') },
+            { key: 'cls', label: L('Classe', 'Class') },
+            { key: 'on', label: L('Ligada', 'On') },
+            { key: 'risk', label: L('Alto risco', 'High risk') }
           ]}
-          rows={tools.map((x) => ({ name: x.name, cls: x.cls, on: x.enabled ? 'yes' : 'no', risk: x.highRisk ? 'yes' : '' }))}
+          rows={tools.map((x) => ({ name: x.name, cls: x.cls, on: x.enabled ? L('sim', 'yes') : L('não', 'no'), risk: x.highRisk ? L('sim', 'yes') : '' }))}
           cursor={toolAt}
           active={active}
         />
@@ -155,15 +159,15 @@ export function Connectors({ state, active }: ScreenProps): ReactNode {
 
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{`Connectors (${state.connectors.length})`}</Text>
+      <Text bold color={t.heading}>{L(`Conectores (${state.connectors.length})`, `Connectors (${state.connectors.length})`)}</Text>
       <Table
         columns={[
-          { key: 'name', label: 'Name' },
-          { key: 'kind', label: 'Kind' },
-          { key: 'status', label: 'Auth' },
-          { key: 'tools', label: 'Tools', right: true }
+          { key: 'name', label: L('Nome', 'Name') },
+          { key: 'kind', label: L('Tipo', 'Kind') },
+          { key: 'status', label: L('Auth', 'Auth') },
+          { key: 'tools', label: L('Ferramentas', 'Tools'), right: true }
         ]}
-        rows={state.connectors.map((c) => ({ name: c.name, kind: KIND(c), status: STATUS[c.status], tools: String(c.tools.length) }))}
+        rows={state.connectors.map((c) => ({ name: c.name, kind: KIND(c), status: STATUS()[c.status], tools: String(c.tools.length) }))}
         cursor={listAt}
         active={active}
       />
@@ -197,7 +201,7 @@ function AddConnector({ close }: { close: () => void }): ReactNode {
     )
 
   const submit = (): void => {
-    if (!name.trim()) return setError('Give it a name.')
+    if (!name.trim()) return setError(L('Dê um nome.', 'Give it a name.'))
     setBusy(true)
     setError(undefined)
     const input =
@@ -214,24 +218,24 @@ function AddConnector({ close }: { close: () => void }): ReactNode {
   }
 
   const fields: FieldSpec[] = [
-    { id: 'kind', label: 'Type', kind: 'select', value: kind, options: [{ value: 'remote', label: 'Remote (URL)' }, { value: 'stdio', label: 'Local (command)' }], onChange: (v) => setKind(v as 'remote' | 'stdio') },
-    { id: 'name', label: 'Name', kind: 'text', value: name, placeholder: kind === 'remote' ? 'E.g. Linear' : 'E.g. Postgres', onChange: setName },
+    { id: 'kind', label: L('Tipo', 'Type'), kind: 'select', value: kind, options: [{ value: 'remote', label: L('Remoto (URL)', 'Remote (URL)') }, { value: 'stdio', label: L('Local (comando)', 'Local (command)') }], onChange: (v) => setKind(v as 'remote' | 'stdio') },
+    { id: 'name', label: L('Nome', 'Name'), kind: 'text', value: name, placeholder: kind === 'remote' ? L('Ex.: Linear', 'E.g. Linear') : L('Ex.: Postgres', 'E.g. Postgres'), onChange: setName },
     ...(kind === 'remote'
       ? ([
-          { id: 'url', label: 'MCP server URL', kind: 'text', value: url, placeholder: 'https://mcp.linear.app/mcp', onChange: setUrl },
-          { id: 'auth', label: 'Authentication', kind: 'select', value: auth, options: [{ value: 'oauth', label: 'OAuth' }, { value: 'token', label: 'Token' }, { value: 'none', label: 'None' }], onChange: (v) => setAuth(v as ConnectorAuth) },
+          { id: 'url', label: L('URL do servidor MCP', 'MCP server URL'), kind: 'text', value: url, placeholder: 'https://mcp.linear.app/mcp', onChange: setUrl },
+          { id: 'auth', label: L('Autenticação', 'Authentication'), kind: 'select', value: auth, options: [{ value: 'oauth', label: 'OAuth' }, { value: 'token', label: 'Token' }, { value: 'none', label: L('Nenhuma', 'None') }], onChange: (v) => setAuth(v as ConnectorAuth) },
           ...(auth === 'token' ? [{ id: 'token', label: 'Token', kind: 'text', value: token, mask: true, onChange: setToken }] : [])
         ] as FieldSpec[])
       : ([
-          { id: 'command', label: 'Command', kind: 'text', value: command, placeholder: 'npx', onChange: setCommand },
-          { id: 'args', label: 'Arguments', kind: 'text', value: args, placeholder: '-y @modelcontextprotocol/server-postgres postgres://…', onChange: setArgs },
-          { id: 'env', label: 'Environment (NAME=value per line)', kind: 'lines', value: env, onChange: setEnv }
+          { id: 'command', label: L('Comando', 'Command'), kind: 'text', value: command, placeholder: 'npx', onChange: setCommand },
+          { id: 'args', label: L('Argumentos', 'Arguments'), kind: 'text', value: args, placeholder: '-y @modelcontextprotocol/server-postgres postgres://…', onChange: setArgs },
+          { id: 'env', label: L('Variáveis de ambiente (NOME=valor por linha)', 'Environment (NAME=value per line)'), kind: 'lines', value: env, onChange: setEnv }
         ] as FieldSpec[]))
   ]
 
   return (
     <Box flexDirection="column">
-      <Text color={t.faint}>{kind === 'stdio' ? 'Runs a process on your computer, as your user.' : 'A remote MCP server; its token stays in the vault.'}</Text>
+      <Text color={t.faint}>{kind === 'stdio' ? L('Roda um processo no seu computador, com o seu usuário.', 'Runs a process on your computer, as your user.') : L('Um servidor MCP remoto; o token dele fica no cofre.', 'A remote MCP server; its token stays in the vault.')}</Text>
       <Form fields={fields} error={error} busy={busy} onCancel={close} onSubmit={submit} />
     </Box>
   )

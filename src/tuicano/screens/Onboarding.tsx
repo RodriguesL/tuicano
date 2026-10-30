@@ -6,6 +6,7 @@
 import { useState, type ReactNode } from 'react'
 import { Box, Text, useInput } from 'ink'
 import { store } from '../store'
+import { L } from '../../shared/lang'
 import { useOverlay, type ScreenProps } from '../overlays/api'
 import { useTheme } from '../theme/context'
 import { Hint } from '../ui/kit'
@@ -14,12 +15,14 @@ import { ENGINES, ENGINE_IDS, MODELS, customModel, startsPicked, type EngineId }
 
 const STEPS = ['name', 'engines', 'models', 'context', 'done'] as const
 type Step = (typeof STEPS)[number]
-const TITLE: Record<Step, string> = {
-  name: 'What should the agents call you?',
-  engines: 'Which harnesses will your agents use?',
-  models: 'Who decides and who remembers?',
-  context: 'Tell us a bit about yourself',
-  done: 'Ready'
+// The window's own words for each step (Onboarding.tsx); the same here. Built when
+// used, not in a module constant (the language isn't known at module load).
+const title = (step: Step): string => {
+  if (step === 'name') return L('Como os agentes devem te chamar?', 'What should the agents call you?')
+  if (step === 'engines') return L('Quais harnesses seus agentes vão usar?', 'Which harnesses will your agents use?')
+  if (step === 'models') return L('Quem decide e quem lembra.', 'Who decides and who remembers.')
+  if (step === 'context') return L('Conta um pouco sobre você.', 'Tell us a bit about yourself.')
+  return L('Pronto', 'Ready')
 }
 
 function ModelsForm({ router, memory, onSave, onCancel }: { router: string; memory: string; onSave: (r: string, m: string) => void; onCancel: () => void }): ReactNode {
@@ -28,8 +31,8 @@ function ModelsForm({ router, memory, onSave, onCancel }: { router: string; memo
   return (
     <Form
       fields={[
-        { id: 'router', label: 'Router model', kind: 'text', value: r, hint: 'reads a channel and picks who replies', onChange: setR },
-        { id: 'memory', label: 'Memory model', kind: 'text', value: m, hint: 'summarizes and extracts memories', onChange: setM }
+        { id: 'router', label: L('Modelo do router', 'Router model'), kind: 'text', value: r, hint: L('lê um canal e escolhe quem responde', 'reads a channel and picks who replies'), onChange: setR },
+        { id: 'memory', label: L('Modelo da memória', 'Memory model'), kind: 'text', value: m, hint: L('resume e extrai memórias', 'summarizes and extracts memories'), onChange: setM }
       ]}
       onSubmit={() => onSave(r, m)}
       onCancel={onCancel}
@@ -39,7 +42,7 @@ function ModelsForm({ router, memory, onSave, onCancel }: { router: string; memo
 
 function ContextForm({ value, onSave, onCancel }: { value: string; onSave: (v: string) => void; onCancel: () => void }): ReactNode {
   const [text, setText] = useState(value)
-  return <Form fields={[{ id: 'context', label: 'Context', kind: 'lines', value: text, hint: 'goes into every agent’s prompt', onChange: setText }]} onSubmit={() => onSave(text)} onCancel={onCancel} />
+  return <Form fields={[{ id: 'context', label: L('Contexto', 'Context'), kind: 'lines', value: text, hint: L('entra no prompt de todo agente', 'goes into every agent’s prompt'), onChange: setText }]} onSubmit={() => onSave(text)} onCancel={onCancel} />
 }
 
 const keys = (at: number, here: Step): [string, string][] => {
@@ -78,7 +81,7 @@ export function Onboarding({ state, active }: ScreenProps): ReactNode {
     const e = ENGINE_IDS.find((x) => settings.engines[x].installed && !settings.engines[x].loggedIn) ?? ENGINE_IDS[0]!
     void store.loginEngine(e).then(
       (r) => {
-        if (r.opened) overlay.note(`Signing in to ${ENGINES[e].label} in a terminal…`)
+        if (r.opened) overlay.note(L(`Entrando no ${ENGINES[e].label} num terminal…`, `Signing in to ${ENGINES[e].label} in a terminal…`))
         else {
           setManual(r.command)
           overlay.note(r.command)
@@ -92,7 +95,7 @@ export function Onboarding({ state, active }: ScreenProps): ReactNode {
     void store.testEngine(modelFor(e)).then(
       (r) => {
         setTested(r)
-        overlay.note(r.ok ? `Working. ${r.message}` : r.message)
+        overlay.note(r.ok ? L(`Funcionando. ${r.message}`, `Working. ${r.message}`) : r.message)
       },
       (err: unknown) => overlay.note(err instanceof Error ? err.message : String(err))
     )
@@ -101,8 +104,8 @@ export function Onboarding({ state, active }: ScreenProps): ReactNode {
   const primary = (): void => {
     if (here === 'name') {
       return overlay.prompt({
-        title: 'Your name',
-        label: 'Name',
+        title: L('Seu nome', 'Your name'),
+        label: L('Nome', 'Name'),
         value: name,
         onSubmit: (v) => {
           setName(v)
@@ -111,11 +114,11 @@ export function Onboarding({ state, active }: ScreenProps): ReactNode {
         }
       })
     }
-    if (here === 'engines') return ready.length ? setStep(2) : overlay.note('Sign in to a harness first.')
+    if (here === 'engines') return ready.length ? setStep(2) : overlay.note(L('Entre num harness primeiro.', 'Sign in to a harness first.'))
     if (here === 'models') {
       if (!ready.length) return setStep(3)
       return overlay.sheet({
-        title: 'Models',
+        title: L('Modelos', 'Models'),
         render: (close) => (
           <ModelsForm
             router={router}
@@ -134,7 +137,7 @@ export function Onboarding({ state, active }: ScreenProps): ReactNode {
     }
     if (here === 'context') {
       return overlay.sheet({
-        title: 'Context',
+        title: L('Contexto', 'Context'),
         render: (close) => (
           <ContextForm
             value={context}
@@ -164,35 +167,35 @@ export function Onboarding({ state, active }: ScreenProps): ReactNode {
 
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{`Welcome to Tucano · step ${at + 1} of ${STEPS.length}`}</Text>
-      <Text color={t.text}>{TITLE[here]}</Text>
+      <Text bold color={t.heading}>{L(`Bem-vindo ao Tucano · passo ${at + 1} de ${STEPS.length}`, `Welcome to Tucano · step ${at + 1} of ${STEPS.length}`)}</Text>
+      <Text color={t.text}>{title(here)}</Text>
 
-      {here === 'name' ? <Text color={t.faint}>{`The agents will call you "${name || 'you'}". Enter to set your name.`}</Text> : null}
+      {here === 'name' ? <Text color={t.faint}>{L(`Os agentes vão te chamar de "${name || 'você'}". Enter para definir seu nome.`, `The agents will call you "${name || 'you'}". Enter to set your name.`)}</Text> : null}
 
       {here === 'engines' ? (
         <Box flexDirection="column">
           {ENGINE_IDS.map((e) => (
             <Text key={e} color={settings.engines[e].loggedIn ? t.ok : t.dim}>
-              {`  ${picked(e) ? '▸ ' : '  '}${ENGINES[e].label.padEnd(14)}${settings.engines[e].loggedIn ? 'signed in' : settings.engines[e].installed ? 'not signed in' : 'not installed'}`}
+              {`  ${picked(e) ? '▸ ' : '  '}${ENGINES[e].label.padEnd(14)}${settings.engines[e].loggedIn ? L('conectado', 'signed in') : settings.engines[e].installed ? L('não conectado', 'not signed in') : L('não instalado', 'not installed')}`}
             </Text>
           ))}
-          <Text color={t.faint}>{ready.length ? 'Enter when you are done.' : 'l signs you in; t sends a test reply once one is ready.'}</Text>
-          {manual ? <Text color={t.waiting}>{`paste in your terminal: ${manual}`}</Text> : null}
-          {tested ? <Text color={tested.ok ? t.ok : t.danger}>{`test: ${tested.ok ? 'working. ' : ''}${tested.message}`}</Text> : null}
+          <Text color={t.faint}>{ready.length ? L('Enter quando terminar.', 'Enter when you are done.') : L('l entra; t manda uma resposta de teste quando um estiver pronto.', 'l signs you in; t sends a test reply once one is ready.')}</Text>
+          {manual ? <Text color={t.waiting}>{L(`cole no seu terminal: ${manual}`, `paste in your terminal: ${manual}`)}</Text> : null}
+          {tested ? <Text color={tested.ok ? t.ok : t.danger}>{L(`teste: ${tested.ok ? 'funcionando. ' : ''}${tested.message}`, `test: ${tested.ok ? 'working. ' : ''}${tested.message}`)}</Text> : null}
         </Box>
       ) : null}
 
       {here === 'models' ? (
         <Box flexDirection="column">
-          <Text color={t.text}>{`  Router: ${router || '(unset)'}`}</Text>
-          <Text color={t.text}>{`  Memory: ${memory || '(unset)'}`}</Text>
-          <Text color={t.faint}>{needsModel ? 'A gateway or provider names its own models: both are required.' : 'Enter to pick, or to continue.'}</Text>
+          <Text color={t.text}>{L(`  Router: ${router || '(não definido)'}`, `  Router: ${router || '(unset)'}`)}</Text>
+          <Text color={t.text}>{L(`  Memória: ${memory || '(não definida)'}`, `  Memory: ${memory || '(unset)'}`)}</Text>
+          <Text color={t.faint}>{needsModel ? L('Um gateway ou provedor nomeia os próprios modelos: os dois são obrigatórios.', 'A gateway or provider names its own models: both are required.') : L('Enter para escolher, ou para continuar.', 'Enter to pick, or to continue.')}</Text>
         </Box>
       ) : null}
 
-      {here === 'context' ? <Text color={t.faint}>{context ? context.split('\n')[0] : 'Every agent reads this. Enter to write it.'}</Text> : null}
+      {here === 'context' ? <Text color={t.faint}>{context ? context.split('\n')[0] : L('Todo agente lê isso. Enter para escrever.', 'Every agent reads this. Enter to write it.')}</Text> : null}
 
-      {here === 'done' ? <Text color={t.text}>Tucano will make your first agent (the Tuca) now. Enter to finish.</Text> : null}
+      {here === 'done' ? <Text color={t.text}>{L('O Tucano vai criar seu primeiro agente (o Tuca) agora. Enter para terminar.', 'Tucano will make your first agent (the Tuca) now. Enter to finish.')}</Text> : null}
 
       {active ? <Hint keys={keys(at, here)} /> : null}
     </Box>

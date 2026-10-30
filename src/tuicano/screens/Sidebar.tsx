@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { Box, Text, useInput } from 'ink'
 import type { State } from '../../app/store'
+import { L } from '../../shared/lang'
 import { store } from '../store'
 import { openable, sidebarRows } from '../sidebar'
 import { List } from '../ui/kit'
@@ -43,8 +44,8 @@ export function Sidebar({ state, active, width }: { state: State; active: boolea
       if (input === 't' && conversation?.kind === 'channel') return overlay.dialog({ kind: 'topic', id })
       if (input === 'm' && conversation?.kind === 'channel') return overlay.dialog({ kind: 'members', id })
       if (input === 'd') {
-        const name = conversation?.kind === 'channel' ? `#${conversation.name}` : 'this conversation'
-        return overlay.confirm({ title: `Delete ${name}?`, detail: 'Its messages and routines go too. This cannot be undone.', yes: 'delete', onYes: () => store.deleteConversation(id) })
+        const name = conversation?.kind === 'channel' ? `#${conversation.name}` : L('esta conversa', 'this conversation')
+        return overlay.confirm({ title: L(`Apagar ${name}?`, `Delete ${name}?`), detail: L('As mensagens e as rotinas dela vão junto. Não dá pra desfazer.', 'Its messages and routines go too. This cannot be undone.'), yes: L('apagar', 'delete'), onYes: () => store.deleteConversation(id) })
       }
       if (input === 'A' && conversation?.kind === 'dm') return overlay.dialog({ kind: 'archived' })
     },
@@ -56,7 +57,7 @@ export function Sidebar({ state, active, width }: { state: State; active: boolea
       <Text bold color={t.heading}>
         {` ${state.settings.workspaceName || 'Tucano'}`}
       </Text>
-      <List rows={all} cursor={Math.max(0, renderCursor)} active={active} empty="No conversations yet." />
+      <List rows={all} cursor={Math.max(0, renderCursor)} active={active} empty={L('Nenhuma conversa ainda.', 'No conversations yet.')} />
     </Box>
   )
 }

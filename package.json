@@ -1,9 +1,13 @@
 {
-  "name": "tucano",
+  "name": "tuicano",
   "version": "0.2.0",
   "private": true,
-  "description": "Tucano: your team of AI agents on your computer, with scopes, approvals and budgets.",
-  "homepage": "https://tucano.sh",
+  "description": "TUIcano: a terminal client for Tucano's core. A fork of eduwxyz/tucano (Apache-2.0); the Electron app is upstream's.",
+  "homepage": "https://github.com/RodriguesL/tuicano",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RodriguesL/tuicano.git"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "main": "out/main/index.js",
@@ -61,8 +65,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "eduwxyz",
-        "repo": "tucano"
+        "owner": "RodriguesL",
+        "repo": "tuicano"
       }
     ],
     "directories": {
@@ -120,7 +124,7 @@
       "icon": "build/icon.png",
       "executableName": "tucano",
       "artifactName": "tucano-linux-${arch}.${ext}",
-      "maintainer": "Eduardo da Silva <eduwxyz@users.noreply.github.com>",
+      "maintainer": "RodriguesL <RodriguesL@users.noreply.github.com>",
       "synopsis": "A team of AI agents on your computer",
       "description": "Tucano is a team of AI agents that lives on your computer. You talk to them in channels; they research, write, code and use your tools, and you decide how far each one goes. It runs on the Claude Code, Codex, OpenCode or Pi you already have."
     },

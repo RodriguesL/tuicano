@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { CoreEvent } from '../src/shared/rpc'
-import type { Agent, EngineId, Message, Settings } from '../src/shared/types'
+import { countedTokens, type Agent, type EngineId, type Message, type Settings } from '../src/shared/types'
 import { Db } from '../src/core/db'
 import { fakeEngine } from '../src/core/engines/fake'
 import type { Engine, Turn } from '../src/core/engines/types'
@@ -187,6 +187,45 @@ describe('Runner', () => {
     const retried = db.message(failed.id)!
     expect(retried.run?.status).toBe('done')
     expect(retried.run?.error).toBeUndefined()
+  })
+
+  it('keeps every turn of a reply as a receipt, oldest first, and the re-emit carries them', async () => {
+    // The first turn spends tokens then fails; the retry is a second turn on the
+    // same message, so the reply ends with two receipts (spec §9).
+    let first = true
+    const flaky: Engine = {
+      id: 'claude',
+      run: (t) => {
+        if (!first) return fakeEngine('claude', { delayMs: 1 }).run(t)
+        first = false
+        return (async function* () {
+          yield { type: 'progress' as const, tokens: 400 }
+          yield { type: 'error' as const, message: 'caiu' }
+        })()
+      }
+    }
+    const lastMessageEvent = (id: string): Message | undefined =>
+      events
+        .filter((e): e is Extract<CoreEvent, { type: 'message' }> => e.type === 'message')
+        .filter((e) => e.message.id === id)
+        .at(-1)?.message
+    const r = runner(flaky)
+    await r.send('d1', 'oi')
+    await r.idle()
+    const failed = agentMessages()[0]!
+    expect(failed.run?.status).toBe('failed')
+    expect(lastMessageEvent(failed.id)?.run?.receipts).toHaveLength(1) // the watching renderer sees the first turn
+
+    r.retry(failed.id)
+    await r.idle()
+    const reply = db.message(failed.id)!
+    const receipts = reply.run!.receipts!
+    expect(receipts).toHaveLength(2)
+    expect(receipts[0]!.inputTokens).toBe(400) // the partial first turn, oldest first
+    expect(receipts[1]).toEqual(reply.run!.receipt) // `receipt` stays the last one for summary readers
+    expect(lastMessageEvent(reply.id)?.run?.receipts).toEqual(receipts) // and the last emit carries them all
+    // The sum is exactly what the usage screen counts for the agent this month.
+    expect(db.usedThisMonth('a1')).toBe(receipts.reduce((n, x) => n + countedTokens(x), 0))
   })
 
   it('stops mid-turn when the usage limit is crossed, then refuses the next turn without starting the engine', async () => {

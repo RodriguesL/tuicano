@@ -1,7 +1,7 @@
 // The pure-Node host, for TUIcano: one process, one data dir, no Electron. The
 // core runs here as a plain module, so nothing can open a browser or screenshot.
 import { spawn } from 'node:child_process'
-import { MessageChannel, type MessagePort } from 'node:worker_threads'
+import type { MessagePort } from 'node:worker_threads'
 import { L, setLang } from '../shared/lang'
 import { plainCipher, type Cipher } from '../core/secrets'
 import type { ClientPort, Host, HostReply, HostRequest } from './types'
@@ -91,13 +91,4 @@ function wrap(port: MessagePort): ClientPort {
     },
     start: () => port.start()
   }
-}
-
-// A port pair for a client the host runs in its own process (TUIcano): the caller
-// keeps one end and hands the other to the core through the door the host's
-// onPort was given (nodeHost forwards it to opts.onPort).
-export function localPortPair(host: Host): [ClientPort, ClientPort] {
-  const { port1, port2 } = new MessageChannel()
-  void host
-  return [wrap(port1), wrap(port2)]
 }

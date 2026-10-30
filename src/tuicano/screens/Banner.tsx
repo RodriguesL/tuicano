@@ -5,6 +5,7 @@
 // data folder is — the answer when the terminal and the window disagree about the team.
 import { Static, Box, Text } from 'ink'
 import type { ReactNode } from 'react'
+import { L } from '../../shared/lang'
 import { useAppState } from '../store'
 import { runtime } from '../runtime'
 import { useTheme } from '../theme/context'
@@ -26,7 +27,7 @@ export function Banner(): ReactNode {
             <Text color={t.faint}>{`  ${runtime.version}`}</Text>
             <Text color={t.dim}>{`  ·  ${workspace}`}</Text>
           </Text>
-          <Text color={t.faint}>{`data · ${runtime.dataDir || '(not set)'}`}</Text>
+          <Text color={t.faint}>{L(`dados · ${runtime.dataDir || '(não definido)'}`, `data · ${runtime.dataDir || '(not set)'}`)}</Text>
         </Box>
       )}
     </Static>

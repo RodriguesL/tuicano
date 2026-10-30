@@ -7,6 +7,7 @@
 // Pure: everything a protocol needs is decided here, and the bytes come out of
 // the encoders, which are tested byte by byte.
 import type { Protocol } from './types'
+import { L } from '../../shared/lang'
 import { fit } from './fit'
 import { iterm2Image } from './iterm2'
 import { kittyImage, kittyRaster } from './kitty'
@@ -38,7 +39,7 @@ export function prepare(bytes: Uint8Array, mime: Mime, protocol: Protocol): Prep
     canDrawImages: protocol !== 'none',
     width: raster.width,
     height: raster.height,
-    fallback: () => `[image ${raster.width}x${raster.height}, ${protocolLabel(protocol)} — text mode]`,
+    fallback: () => L(`[imagem ${raster.width}x${raster.height}, ${protocolLabel(protocol)} — modo texto]`, `[image ${raster.width}x${raster.height}, ${protocolLabel(protocol)} — text mode]`),
     escape(cell, area) {
       if (protocol === 'none') return null
       const placement = fit({ width: raster.width, height: raster.height }, cell, area)

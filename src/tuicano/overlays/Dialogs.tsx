@@ -10,6 +10,7 @@ import { Box, Text, useInput } from 'ink'
 import type { Dialog, State } from '../../app/store'
 import type { AgentColor, Conversation, Message } from '../../shared/types'
 import { isTeam } from '../../shared/types'
+import { L } from '../../shared/lang'
 import { conversationTitle, useAppState, store } from '../store'
 import { useOverlay } from './api'
 import { agentColor, useTheme } from '../theme/context'
@@ -65,12 +66,12 @@ function Members({ id, close }: { id: string; close: () => void }): ReactNode {
     if (key.return) store.setChannelMembers(id, picked).then(close, (e: unknown) => overlay.note(reason(e)))
   })
 
-  if (!conversation) return <Text color={t.faint}>This channel is gone.</Text>
+  if (!conversation) return <Text color={t.faint}>{L('Este canal sumiu.', 'This channel is gone.')}</Text>
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{`Agents in #${conversation.name}`}</Text>
-      <Text color={t.dim}>Whoever is in reads the conversation and can reply. Space toggles, Enter saves.</Text>
-      {ordered.length === 0 ? <Text color={t.faint}>No agents yet.</Text> : null}
+      <Text bold color={t.heading}>{L(`Agentes em #${conversation.name}`, `Agents in #${conversation.name}`)}</Text>
+      <Text color={t.dim}>{L('Quem está no canal lê a conversa e pode responder. Espaço alterna, Enter salva.', 'Whoever is in reads the conversation and can reply. Space toggles, Enter saves.')}</Text>
+      {ordered.length === 0 ? <Text color={t.faint}>{L('Nenhum agente ainda.', 'No agents yet.')}</Text> : null}
       {ordered.map((a, i) => {
         const on = picked.includes(a.id)
         const selected = i === at
@@ -95,11 +96,11 @@ function Rename({ id, close }: { id: string; close: () => void }): ReactNode {
   const [error, setError] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
 
-  if (!conversation) return <Text color={t.faint}>This channel is gone.</Text>
+  if (!conversation) return <Text color={t.faint}>{L('Este canal sumiu.', 'This channel is gone.')}</Text>
   return (
     <Form
-      title={`Rename #${conversation.name}`}
-      fields={[{ id: 'name', label: 'Name', kind: 'text', value: name, onChange: setName, hint: 'lowercase and hyphens: “App Launch” becomes app-launch.' }]}
+      title={L(`Renomear #${conversation.name}`, `Rename #${conversation.name}`)}
+      fields={[{ id: 'name', label: L('Nome', 'Name'), kind: 'text', value: name, onChange: setName, hint: L('minúsculas e hífens: “Lançamento do App” vira lancamento-do-app.', 'lowercase and hyphens: “App Launch” becomes app-launch.') }]}
       error={error}
       busy={busy}
       submitLabel="Enter"
@@ -127,11 +128,11 @@ function Topic({ id, close }: { id: string; close: () => void }): ReactNode {
   const [error, setError] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
 
-  if (!conversation) return <Text color={t.faint}>This channel is gone.</Text>
+  if (!conversation) return <Text color={t.faint}>{L('Este canal sumiu.', 'This channel is gone.')}</Text>
   return (
     <Form
-      title={`Topic of #${conversation.name}`}
-      fields={[{ id: 'topic', label: 'Topic', kind: 'text', value: topic, onChange: setTopic, hint: 'One line at the top of the channel. Empty clears it.' }]}
+      title={L(`Tema de #${conversation.name}`, `Topic of #${conversation.name}`)}
+      fields={[{ id: 'topic', label: L('Tema', 'Topic'), kind: 'text', value: topic, onChange: setTopic, hint: L('Uma linha no topo do canal. Vazio, some.', 'One line at the top of the channel. Empty clears it.') }]}
       error={error}
       busy={busy}
       submitLabel="Enter"
@@ -160,8 +161,8 @@ function NewChannel({ close }: { close: () => void }): ReactNode {
   const [busy, setBusy] = useState(false)
   return (
     <Form
-      title="New channel"
-      fields={[{ id: 'name', label: 'Name', kind: 'text', value: name, onChange: setName, hint: 'lowercase and hyphens: “Payments Squad” becomes payments-squad.' }]}
+      title={L('Novo canal', 'New channel')}
+      fields={[{ id: 'name', label: L('Nome', 'Name'), kind: 'text', value: name, onChange: setName, hint: L('minúsculas e hífens: “Squad Pagamentos” vira squad-pagamentos.', 'lowercase and hyphens: “Payments Squad” becomes payments-squad.') }]}
       error={error}
       busy={busy}
       submitLabel="Enter"
@@ -202,7 +203,7 @@ function Archived({ close }: { close: () => void }): ReactNode {
     if (key.downArrow || input === 'j') return setCursor(Math.min(agents.length - 1, at + 1))
     const agent = agents[at]
     if (!agent) return
-    if (key.return) return void store.archiveAgent(agent.id, false).then(() => overlay.note(`${agent.name} is back`), (e: unknown) => overlay.note(reason(e)))
+    if (key.return) return void store.archiveAgent(agent.id, false).then(() => overlay.note(L(`${agent.name} voltou`, `${agent.name} is back`)), (e: unknown) => overlay.note(reason(e)))
     if (input === 'n') {
       store.navigate({ kind: 'agent', id: agent.id })
       close()
@@ -211,9 +212,9 @@ function Archived({ close }: { close: () => void }): ReactNode {
 
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{`Archived agents (${agents.length})`}</Text>
-      <Text color={t.dim}>They don’t reply or run routines; history and receipts stay. Enter brings one back.</Text>
-      {agents.length === 0 ? <Text color={t.faint}>No archived agents.</Text> : null}
+      <Text bold color={t.heading}>{L(`Agentes arquivados (${agents.length})`, `Archived agents (${agents.length})`)}</Text>
+      <Text color={t.dim}>{L('Eles não respondem nem rodam rotinas; o histórico e os recibos ficam. Enter traz um de volta.', 'They don’t reply or run routines; history and receipts stay. Enter brings one back.')}</Text>
+      {agents.length === 0 ? <Text color={t.faint}>{L('Nenhum agente arquivado.', 'No archived agents.')}</Text> : null}
       {agents.map((a, i) => {
         const selected = i === at
         return (
@@ -248,9 +249,9 @@ const fold = (s: string): string =>
 const who = (state: State, m: Message): string => {
   if (m.author.kind === 'agent') {
     const id = m.author.id
-    return state.agents.find((a) => a.id === id)?.name ?? 'agent'
+    return state.agents.find((a) => a.id === id)?.name ?? L('agente', 'agent')
   }
-  return m.author.kind === 'me' ? 'you' : m.author.kind
+  return m.author.kind === 'me' ? L('você', 'you') : m.author.kind
 }
 
 // Channels keep their `#`; a DM reads as the agent's name (spec §3.4).
@@ -263,17 +264,17 @@ function hits(state: State, query: string): { rows: Hit[]; more: number } {
   for (const c of state.conversations) {
     const title = titleOf(state, c)
     if (!fold(`${title} ${c.topic ?? ''}`).includes(query)) continue
-    rows.push({ key: `conv-${c.id}`, group: 'Conversations', label: title, context: c.topic ?? (c.kind === 'channel' ? 'channel' : 'conversation'), go: () => store.navigate({ kind: 'conversation', id: c.id }) })
+    rows.push({ key: `conv-${c.id}`, group: L('Conversas', 'Conversations'), label: title, context: c.topic ?? (c.kind === 'channel' ? L('canal', 'channel') : L('conversa', 'conversation')), go: () => store.navigate({ kind: 'conversation', id: c.id }) })
   }
   for (const a of state.agents.filter((x) => !x.archived)) {
     if (!fold(`${a.name} ${a.handle} ${a.role}`).includes(query)) continue
-    rows.push({ key: `agent-${a.id}`, group: 'Agents', label: a.name, context: `@${a.handle}${a.role ? ` · ${a.role}` : ''}`, color: a.color, go: () => void store.openDm(a.id) })
+    rows.push({ key: `agent-${a.id}`, group: L('Agentes', 'Agents'), label: a.name, context: `@${a.handle}${a.role ? ` · ${a.role}` : ''}`, color: a.color, go: () => void store.openDm(a.id) })
   }
   const matched = state.messages.filter((m) => fold(m.text).includes(query))
   const CAP = 20
   for (const m of matched.slice(0, CAP)) {
     const conv = state.conversations.find((c) => c.id === m.conversationId)
-    rows.push({ key: `msg-${m.id}`, group: 'Messages', label: m.text.trim().replace(/\s+/g, ' ').slice(0, 60), context: `${who(state, m)} in ${conv ? titleOf(state, conv) : 'a conversation'}`, go: () => store.navigate({ kind: 'conversation', id: m.conversationId }) })
+    rows.push({ key: `msg-${m.id}`, group: L('Mensagens', 'Messages'), label: m.text.trim().replace(/\s+/g, ' ').slice(0, 60), context: `${who(state, m)} ${L('em', 'in')} ${conv ? titleOf(state, conv) : L('uma conversa', 'a conversation')}`, go: () => store.navigate({ kind: 'conversation', id: m.conversationId }) })
   }
   return { rows, more: Math.max(0, matched.length - CAP) }
 }
@@ -329,14 +330,14 @@ function Search({ close }: { close: () => void }): ReactNode {
 
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{'Search'}</Text>
+      <Text bold color={t.heading}>{L('Buscar', 'Search')}</Text>
       <Text color={t.text}>
         <Text color={t.accent}>{'/ '}</Text>
-        {q || <Text color={t.faint}>{'type to filter channels, agents and messages'}</Text>}
+        {q || <Text color={t.faint}>{L('digite para filtrar canais, agentes e mensagens', 'type to filter channels, agents and messages')}</Text>}
       </Text>
-      {query && rows.length === 0 ? <Text color={t.faint}>{`Nothing matching “${q}”.`}</Text> : null}
+      {query && rows.length === 0 ? <Text color={t.faint}>{L(`Nada com “${q}”.`, `Nothing matching “${q}”.`)}</Text> : null}
       {body}
-      {more > 0 ? <Text color={t.faint}>{`+${more} more message${more === 1 ? '' : 's'} (narrow the search)`}</Text> : null}
+      {more > 0 ? <Text color={t.faint}>{L(`+${more} mensagem${more === 1 ? '' : 's'} (restrinja a busca)`, `+${more} more message${more === 1 ? '' : 's'} (narrow the search)`)}</Text> : null}
       <Hint keys={[['↑↓', 'move'], ['enter', 'open'], ['esc', 'close']]} />
     </Box>
   )

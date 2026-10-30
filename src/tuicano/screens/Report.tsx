@@ -5,30 +5,39 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Box, Text, useInput } from 'ink'
 import { agentById, store } from '../store'
+import { L } from '../../shared/lang'
 import { useOverlay, type ScreenProps } from '../overlays/api'
 import { useTheme } from '../theme/context'
 import { Hint } from '../ui/kit'
-import { ago, duration, pct, shiftWeek, startOfWeek, tokens, weekRange } from '../../shared/format'
+import { ago, duration, pct, shiftWeek, startOfWeek, tokens, usd, weekRange } from '../../shared/format'
 import type { AgentReport, Problem, Report as ReportData } from '../../shared/types'
 
-const PROBLEM: Record<Problem['kind'], string> = {
-  failed: 'Failed',
-  cut: 'Cut off (a loop, or it stalled)',
-  paused: 'Stopped at the token ceiling',
-  refused: 'You refused an action'
-}
+// The GUI labels each problem kind the same way (Report.tsx); the same words here.
+const problemLabel = (kind: Problem['kind']): string =>
+  kind === 'failed'
+    ? L('Falhou', 'Failed')
+    : kind === 'cut'
+      ? L('Foi cortada (loop ou travou)', 'Cut off (a loop, or it stalled)')
+      : kind === 'paused'
+        ? L('Parou no teto de tokens', 'Stopped at the token ceiling')
+        : L('Você recusou uma ação', 'You refused an action')
 
 function AgentLine({ r, name, selected, active }: { r: AgentReport; name: string; selected: boolean; active: boolean }): ReactNode {
   const t = useTheme()
   const tone = pct(r.total.ok, r.total.replies)
+  // The week's cost, or a plain word when no engine reported one (spec §9, §21).
+  const cost = r.apiUsd !== undefined ? usd(r.apiUsd) : L('custo não informado', 'cost not reported')
   return (
-    <Text inverse={selected && active}>
-      {`${selected ? '› ' : '  '}${name.padEnd(16)}`}
-      <Text color={t.dim}>{`${r.total.ok}/${r.total.replies} ok  `}</Text>
-      <Text color={r.total.replies && r.total.ok / r.total.replies >= 0.9 ? t.ok : r.total.replies && r.total.ok / r.total.replies >= 0.75 ? t.warn : t.danger}>{tone}</Text>
-      <Text color={t.faint}>{`  ${tokens(r.avgTokens)}/reply · ${duration(r.avgMs)} avg`}</Text>
-      {r.problems.length ? <Text color={t.warn}>{`  · ${r.problems.length} problem(s)`}</Text> : null}
-    </Text>
+    <Box flexDirection="column">
+      <Text inverse={selected && active}>
+        {`${selected ? '› ' : '  '}${name.padEnd(16)}`}
+        <Text color={t.dim}>{`${r.total.ok}/${r.total.replies} ok  `}</Text>
+        <Text color={r.total.replies && r.total.ok / r.total.replies >= 0.9 ? t.ok : r.total.replies && r.total.ok / r.total.replies >= 0.75 ? t.warn : t.danger}>{tone}</Text>
+        <Text color={t.faint}>{L(`  ${tokens(r.avgTokens)}/resposta · ${duration(r.avgMs)} em média · ${cost}`, `  ${tokens(r.avgTokens)}/reply · ${duration(r.avgMs)} avg · ${cost}`)}</Text>
+        {r.problems.length ? <Text color={t.warn}>{L(`  · ${r.problems.length} problema(s)`, `  · ${r.problems.length} problem(s)`)}</Text> : null}
+      </Text>
+      {r.proposedSkills && r.proposedSkills.length > 0 ? <Text color={t.dim}>{L(`  Propôs: ${r.proposedSkills.map((s) => s.name).join(', ')}`, `  Proposed: ${r.proposedSkills.map((s) => s.name).join(', ')}`)}</Text> : null}
+    </Box>
   )
 }
 
@@ -40,33 +49,35 @@ function Weeks({ r }: { r: AgentReport }): ReactNode {
 
 function WeekSheet({ r, name, report }: { r: AgentReport; name: string; report: ReportData }): ReactNode {
   const t = useTheme()
+  const cost = r.apiUsd !== undefined ? usd(r.apiUsd) : L('custo não informado', 'cost not reported')
   return (
     <Box flexDirection="column">
       <Text bold color={t.heading}>{`${name} — ${weekRange(report.since)}`}</Text>
-      <Text color={t.text}>{`${r.total.ok}/${r.total.replies} ok (${pct(r.total.ok, r.total.replies)}) · ${tokens(r.avgTokens)} tokens and ${duration(r.avgMs)} on average`}</Text>
-      <Text color={t.dim}>{`failed ${r.failed} · cut ${r.cut} · paused ${r.paused} · approvals ${r.approvals.asked} asked, ${r.approvals.refused} refused`}</Text>
-      <Text color={t.faint}>Last six weeks (ok/total):</Text>
+      <Text color={t.text}>{L(`${r.total.ok}/${r.total.replies} ok (${pct(r.total.ok, r.total.replies)}) · ${tokens(r.avgTokens)} tokens e ${duration(r.avgMs)} em média · ${cost}`, `${r.total.ok}/${r.total.replies} ok (${pct(r.total.ok, r.total.replies)}) · ${tokens(r.avgTokens)} tokens and ${duration(r.avgMs)} on average · ${cost}`)}</Text>
+      {r.proposedSkills && r.proposedSkills.length > 0 ? <Text color={t.dim}>{L(`Propôs: ${r.proposedSkills.map((s) => s.name).join(', ')}`, `Proposed: ${r.proposedSkills.map((s) => s.name).join(', ')}`)}</Text> : null}
+      <Text color={t.dim}>{L(`falhou ${r.failed} · cortada ${r.cut} · pausada ${r.paused} · aprovações ${r.approvals.asked} pedidas, ${r.approvals.refused} recusadas`, `failed ${r.failed} · cut ${r.cut} · paused ${r.paused} · approvals ${r.approvals.asked} asked, ${r.approvals.refused} refused`)}</Text>
+      <Text color={t.faint}>{L('As últimas seis semanas (ok/total):', 'Last six weeks (ok/total):')}</Text>
       <Weeks r={r} />
       {r.problems.length ? (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold color={t.heading}>Problems</Text>
+          <Text bold color={t.heading}>{L('Problemas', 'Problems')}</Text>
           {r.problems.map((p) => (
             <Text key={`${p.kind}-${p.messageId}`} color={p.kind === 'failed' ? t.danger : t.warn}>
-              {`${PROBLEM[p.kind]}${p.kind === 'refused' && p.detail ? ` — ${p.detail}` : ''}  `}
+              {`${problemLabel(p.kind)}${p.kind === 'refused' && p.detail ? ` — ${p.detail}` : ''}  `}
               <Text color={t.faint}>{`${ago(p.at)}${p.detail && p.kind !== 'refused' ? ` · ${p.detail}` : ''}`}</Text>
             </Text>
           ))}
         </Box>
       ) : (
-        <Text color={t.faint}>Nothing failed, stalled or was refused.</Text>
+        <Text color={t.faint}>{L('Nada falhou, travou ou foi recusado.', 'Nothing failed, stalled or was refused.')}</Text>
       )}
       {report.work.some((w) => w.agents.includes(r.agentId)) ? (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold color={t.heading}>Work it counted toward</Text>
+          <Text bold color={t.heading}>{L('Trabalho que contou para', 'Work it counted toward')}</Text>
           {report.work
             .filter((w) => w.agents.includes(r.agentId))
             .map((w) => (
-              <Text key={w.work} color={t.text}>{`${w.work}  ${tokens(w.tokens)} · ${w.replies} replies`}</Text>
+              <Text key={w.work} color={t.text}>{L(`${w.work}  ${tokens(w.tokens)} · ${w.replies} respostas`, `${w.work}  ${tokens(w.tokens)} · ${w.replies} replies`)}</Text>
             ))}
         </Box>
       ) : null}
@@ -110,50 +121,50 @@ export function Report({ state, active }: ScreenProps): ReactNode {
       if (!report) return
       const r = active_[at]
       if (key.return && r) {
-        const name = agentById(state, r.agentId)?.name ?? 'agent'
+        const name = agentById(state, r.agentId)?.name ?? L('agente', 'agent')
         overlay.sheet({ title: `${name} — ${weekRange(report.since)}`, render: () => <WeekSheet r={r} name={name} report={report} /> })
       }
     },
     { isActive: active }
   )
 
-  if (error) return <Text color={t.danger}>{`Report could not load: ${error}`}</Text>
+  if (error) return <Text color={t.danger}>{L(`O boletim não pôde carregar: ${error}`, `Report could not load: ${error}`)}</Text>
 
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{`Report — ${weekRange(week)}`}</Text>
-      {!thisWeek ? <Text color={t.faint}>{'not this week · t comes back to it'}</Text> : null}
+      <Text bold color={t.heading}>{L(`Boletim — ${weekRange(week)}`, `Report — ${weekRange(week)}`)}</Text>
+      {!thisWeek ? <Text color={t.faint}>{L('não é esta semana · t volta para ela', 'not this week · t comes back to it')}</Text> : null}
       {!report ? (
-        <Text color={t.faint}>Calculating…</Text>
+        <Text color={t.faint}>{L('Calculando…', 'Crunching…')}</Text>
       ) : (
         <>
           {(() => {
             const ok = report.agents.reduce((n, a) => n + a.total.ok, 0)
             const all = report.agents.reduce((n, a) => n + a.total.replies, 0)
             const ratio = all ? ok / all : undefined
-            const mood = ratio === undefined ? '' : ratio >= 0.9 ? 'Good week' : ratio >= 0.75 ? 'Fair week' : 'Rough week'
+            const mood = ratio === undefined ? '' : ratio >= 0.9 ? L('Semana boa', 'Good week') : ratio >= 0.75 ? L('Semana razoável', 'Fair week') : L('Semana difícil', 'Rough week')
             return (
               <Text color={t.text}>
-                {all === 0 ? (thisWeek ? 'No replies from the agents yet this week.' : 'No replies from the agents this week.') : `${mood}: ${pct(ok, all)} of ${all} replies ended well.`}
+                {all === 0 ? (thisWeek ? L('Nenhuma resposta dos agentes ainda nesta semana.', 'No replies from the agents yet this week.') : L('Nenhuma resposta dos agentes nesta semana.', 'No replies from the agents this week.')) : L(`${mood}: ${pct(ok, all)} das ${all} respostas terminaram bem.`, `${mood}: ${pct(ok, all)} of ${all} replies ended well.`)}
               </Text>
             )
           })()}
 
           <Box marginTop={1} flexDirection="column">
-            <Text bold color={t.heading}>By agent</Text>
+            <Text bold color={t.heading}>{L('Por agente', 'By agent')}</Text>
             {active_.length ? (
-              active_.map((r, i) => <AgentLine key={r.agentId} r={r} name={agentById(state, r.agentId)?.name ?? 'agent'} selected={i === at} active={active} />)
+              active_.map((r, i) => <AgentLine key={r.agentId} r={r} name={agentById(state, r.agentId)?.name ?? L('agente', 'agent')} selected={i === at} active={active} />)
             ) : (
-              <Text color={t.faint}>No agent replied this week.</Text>
+              <Text color={t.faint}>{L('Nenhum agente respondeu nesta semana.', 'No agent replied this week.')}</Text>
             )}
           </Box>
 
           {active_[at]?.problems.length ? (
             <Box marginTop={1} flexDirection="column">
-              <Text bold color={t.heading}>Problems</Text>
+              <Text bold color={t.heading}>{L('Problemas', 'Problems')}</Text>
               {active_[at]!.problems.map((p) => (
                 <Text key={`${p.kind}-${p.messageId}`} color={p.kind === 'failed' ? t.danger : t.warn}>
-                  {`${PROBLEM[p.kind]}${p.detail ? ` — ${p.detail}` : ''}  `}
+                  {`${problemLabel(p.kind)}${p.detail ? ` — ${p.detail}` : ''}  `}
                   <Text color={t.faint}>{ago(p.at)}</Text>
                 </Text>
               ))}
@@ -166,8 +177,8 @@ export function Report({ state, active }: ScreenProps): ReactNode {
               {report.skills.map((s) => (
                 <Text key={s.skillId} color={t.text}>
                   {`${s.name.padEnd(20)}`}
-                  <Text color={t.dim}>{`${s.reads.ok}/${s.reads.replies} replies read it`}</Text>
-                  {s.before && s.since ? <Text color={t.faint}>{`  · before ${pct(s.before.ok, s.before.replies)} → after ${pct(s.since.ok, s.since.replies)}`}</Text> : null}
+                  <Text color={t.dim}>{L(`${s.reads.ok}/${s.reads.replies} respostas leram`, `${s.reads.ok}/${s.reads.replies} replies read it`)}</Text>
+                  {s.before && s.since ? <Text color={t.faint}>{L(`  · antes ${pct(s.before.ok, s.before.replies)} → depois ${pct(s.since.ok, s.since.replies)}`, `  · before ${pct(s.before.ok, s.before.replies)} → after ${pct(s.since.ok, s.since.replies)}`)}</Text> : null}
                 </Text>
               ))}
             </Box>
@@ -175,12 +186,12 @@ export function Report({ state, active }: ScreenProps): ReactNode {
 
           {report.work.length ? (
             <Box marginTop={1} flexDirection="column">
-              <Text bold color={t.heading}>By task</Text>
+              <Text bold color={t.heading}>{L('Por tarefa', 'By task')}</Text>
               {report.work.map((w) => (
                 <Text key={w.work} color={t.text}>
                   {`${w.work.padEnd(10)}`}
                   <Text color={t.dim}>{`${w.agents.map((id) => agentById(state, id)?.name ?? id).join(', ')}  `}</Text>
-                  {`${tokens(w.tokens)} · ${w.replies} replies  `}
+                  {L(`${tokens(w.tokens)} · ${w.replies} respostas  `, `${tokens(w.tokens)} · ${w.replies} replies  `)}
                   <Text color={t.faint}>{ago(w.last)}</Text>
                 </Text>
               ))}

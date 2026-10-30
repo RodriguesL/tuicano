@@ -1,5 +1,10 @@
 # Arch Linux and CachyOS with Niri
 
+> **Upstream document.** This is upstream Tucano's guide for the Electron app on Arch and its
+> family. This fork does not maintain that app, and the download link below points at upstream
+> ([eduwxyz/tucano](https://github.com/eduwxyz/tucano)). For the terminal client, see the
+> [fork README](../README.md).
+
 This guide covers running Tucano on Arch Linux and its family, and repeating the validation in a Niri/Wayland session. The run recorded below was done on CachyOS. It covers the source code and a basic Electron start; installing from the AppImage and full desktop integration still need testing.
 
 ## Installing the AppImage

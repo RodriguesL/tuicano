@@ -53,7 +53,7 @@ describe('the connectors page', () => {
     const frame = mount(() => <Connectors state={state()} active />).frame()
     expect(frame).toContain('Linear')
     expect(frame).toContain('remote')
-    expect(frame).toContain('needs reconnecting')
+    expect(frame).toContain('needs authorization')
     expect(frame).toContain('2') // two tools
   })
 

@@ -1,5 +1,10 @@
 # Security
 
+> **Upstream document.** This is upstream Tucano's security policy for the Electron app, and the
+> reporting link below goes to upstream ([eduwxyz/tucano](https://github.com/eduwxyz/tucano)). This
+> fork never merges upstream, so report anything in this fork's own terminal client through the
+> fork's repository instead ([RodriguesL/tuicano](https://github.com/RodriguesL/tuicano)).
+
 Tucano runs AI agents that can read your tools, run commands and click in a browser, so its permission model matters. If you find a way around it, please tell us privately.
 
 ## Reporting a vulnerability

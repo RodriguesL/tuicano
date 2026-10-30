@@ -4,6 +4,7 @@
 import { useState, type ReactNode } from 'react'
 import { Box, Text, useInput } from 'ink'
 import { agentById, pendingApprovals } from '../store'
+import { L } from '../../shared/lang'
 import { useApprovalGate } from '../useApprovals'
 import { useTheme } from '../theme/context'
 import type { ScreenProps } from '../overlays/api'
@@ -28,22 +29,22 @@ export function Approvals({ state, active }: ScreenProps): ReactNode {
     { isActive: active }
   )
 
-  if (!pending.length) return <Text color={t.faint}>Nothing waiting for you. Agents stop and ask here before anything sensitive runs.</Text>
+  if (!pending.length) return <Text color={t.faint}>{L('Nada esperando por você. Os agentes param e pedem aqui antes de qualquer coisa sensível rodar.', 'Nothing waiting for you. Agents stop and ask here before anything sensitive runs.')}</Text>
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{`Approvals (${pending.length})`}</Text>
+      <Text bold color={t.heading}>{L(`Aprovações (${pending.length})`, `Approvals (${pending.length})`)}</Text>
       {pending.map((a, i) => {
         const selected = i === at
         const high = armed === a.id
         return (
           <Box key={a.id} flexDirection="column" marginTop={1} borderStyle="round" borderColor={high || a.highRisk ? t.danger : selected ? t.borderFocus : t.border} paddingX={1}>
             <Text inverse={selected && active} bold color={a.highRisk ? t.danger : t.text}>
-              {`${selected ? '›' : ' '} ${agentById(state, a.agentId)?.name ?? 'agent'} wants ${a.tool} in ${a.connectorName}`}
-              {a.highRisk ? <Text color={t.danger}>{'  · HIGH RISK'}</Text> : null}
+              {L(`${selected ? '›' : ' '} ${agentById(state, a.agentId)?.name ?? 'agente'} quer usar ${a.tool} no ${a.connectorName}`, `${selected ? '›' : ' '} ${agentById(state, a.agentId)?.name ?? 'agent'} wants ${a.tool} in ${a.connectorName}`)}
+              {a.highRisk ? <Text color={t.danger}>{L('  · ALTO RISCO', '  · HIGH RISK')}</Text> : null}
             </Text>
             {a.why ? <Text color={t.dim}>{a.why}</Text> : null}
             <Text color={t.faint}>{JSON.stringify(a.args)}</Text>
-            <Text color={t.faint}>{`expires ${time(a.expiresAt)}`}</Text>
+            <Text color={t.faint}>{L(`expira ${time(a.expiresAt)}`, `expires ${time(a.expiresAt)}`)}</Text>
             {selected ? (
               high ? (
                 <Text color={t.danger}>high risk: press the same key again within 3 s to confirm</Text>

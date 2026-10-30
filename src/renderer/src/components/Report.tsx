@@ -5,7 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { agentById, loadReport, navigate, useStore, type AgentReport, type Problem, type Rate, type Report } from '../store'
 import { Sheet } from './Pages'
 import { when } from './Routines'
-import { ago, AgentAvatar, Icon, shiftWeek, startOfWeek, tokens, weekRange } from './ui'
+import { ago, AgentAvatar, Icon, shiftWeek, startOfWeek, tokens, usd, weekRange } from './ui'
 
 const ratio = (r: Rate): number | undefined => (r.replies ? r.ok / r.replies : undefined)
 const pct = (r: Rate): string => (r.replies ? `${Math.round((r.ok / r.replies) * 100)}%` : '—')
@@ -184,7 +184,8 @@ function AgentLine({ report: r }: { report: AgentReport }): ReactNode {
           <span className="rep-line__name">
             <strong>{agent.name}</strong>
             <span>
-              {r.total.replies === 1 ? L('1 resposta', '1 reply') : L(`${r.total.replies} respostas`, `${r.total.replies} replies`)} · {L(`${tokens(r.avgTokens)} tokens e ${minutes(r.avgMs)} em média`, `${tokens(r.avgTokens)} tokens and ${minutes(r.avgMs)} on average`)}
+              {r.total.replies === 1 ? L('1 resposta', '1 reply') : L(`${r.total.replies} respostas`, `${r.total.replies} replies`)} · {L(`${tokens(r.avgTokens)} tokens e ${minutes(r.avgMs)} em média`, `${tokens(r.avgTokens)} tokens and ${minutes(r.avgMs)} on average`)} ·{' '}
+              {r.apiUsd !== undefined ? usd(r.apiUsd) : L('custo não informado', 'cost not reported')}
             </span>
           </span>
         </button>
@@ -197,6 +198,11 @@ function AgentLine({ report: r }: { report: AgentReport }): ReactNode {
         </span>
         <span className={`rep-line__rate ${tone(r.total)}`}>{pct(r.total)}</span>
       </div>
+      {r.proposedSkills && r.proposedSkills.length > 0 && (
+        <p className="rep-line__fine">
+          <Icon name="book" size={12} /> {L('Propôs', 'Proposed')}: {r.proposedSkills.map((s) => s.name).join(', ')}
+        </p>
+      )}
       {r.problems.length === 0 ? (
         <p className="rep-line__fine">
           <Icon name="check" size={12} /> {L('Nada falhou, travou ou foi recusado.', 'Nothing failed, stalled or was refused.')}

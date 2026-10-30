@@ -1,5 +1,10 @@
 # Tucano on Windows
 
+> **Upstream document.** This is upstream Tucano's Windows guide for the Electron app. This fork
+> does not maintain that app, and the clone and install links below point at upstream
+> ([eduwxyz/tucano](https://github.com/eduwxyz/tucano)). For the terminal client, see the
+> [fork README](../README.md).
+
 Tucano was built for macOS. This document covers running it on Windows: what you need, how to run and package it, how it behaves differently from the Mac, and **every change** made to get there, file by file.
 
 Status: **runs on Windows 10/11 (x64)**, in development (`npm run dev`) and as an installed app, from each release (see [Installing](#installing)). Typecheck and the full test suite pass on Windows, including the Docker tests, and run on Windows for every pull request. A real agent turn through Claude Code works end to end. The Windows build is **not code-signed**.

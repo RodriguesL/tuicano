@@ -2,6 +2,11 @@
 > **TUIcano**, o cliente de terminal, e **não mantém a interface Electron**: leia o
 > [README em inglês](README.md) e o [contrato de paridade](docs/spec-tuicano.md). O texto abaixo
 > descreve o app do upstream, que continua nesta árvore só como referência da paridade.
+>
+> **Atribuição.** TUIcano é um fork de [eduwxyz/tucano](https://github.com/eduwxyz/tucano), do
+> [eduwxyz](https://github.com/eduwxyz) e seus contribuidores, distribuído sob a mesma licença,
+> Apache-2.0. O projeto original e seus autores são creditados; as áreas que este fork modificou ou
+> adicionou estão em [NOTICE](NOTICE).
 
 <div align="center">
 

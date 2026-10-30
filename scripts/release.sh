@@ -1,4 +1,10 @@
 #!/bin/sh
+# NOTE: upstream Tucano's desktop release flow, kept as reference. This fork does
+# not publish desktop builds (see README, "What this fork is"), so `npm run
+# release` should not be run here: the install commands in the notes below point
+# at upstream's releases, which is where the desktop builds live. The terminal
+# client installs with scripts/install-tui.sh.
+#
 # Builds the .dmg and .zip for Apple Silicon and publishes them as a GitHub
 # release, tagged with package.json's version. Signed with the keychain's
 # Developer ID Application certificate and notarized by Apple, so the .dmg

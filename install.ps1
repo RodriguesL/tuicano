@@ -1,3 +1,7 @@
+# NOTE: this installer downloads the desktop app from upstream Tucano's releases
+# (github.com/eduwxyz/tucano), not from this fork: TUIcano publishes no desktop
+# builds. For the terminal client, see scripts/install-tui.sh.
+#
 # Installs or updates Tucano on Windows, in PowerShell:
 #   irm https://github.com/eduwxyz/tucano/releases/latest/download/install.ps1 | iex
 #

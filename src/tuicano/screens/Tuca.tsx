@@ -5,6 +5,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Box, Text, useInput } from 'ink'
 import { conversationMessages, store, type View } from '../store'
+import { L } from '../../shared/lang'
 import { useOverlay, type ScreenProps } from '../overlays/api'
 import { agentColor, useTheme } from '../theme/context'
 import { Hint } from '../ui/kit'
@@ -38,19 +39,19 @@ export function TucaBuilder({ state, active, from }: ScreenProps & { from?: View
       if (key.escape) return leave()
       if (input === 'n') return start(true)
       if ((input === 'i' || key.return) && conv.id)
-        return overlay.prompt({ title: 'Answer the Tuca', label: 'Your answer', onSubmit: (text) => (text.trim() && store.sendMessage(conv.id!, text), undefined) })
+        return overlay.prompt({ title: L('Responder ao Tuca', 'Answer the Tuca'), label: L('Sua resposta', 'Your answer'), onSubmit: (text) => (text.trim() && store.sendMessage(conv.id!, text), undefined) })
     },
     { isActive: active }
   )
 
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{'The Tuca · new agent'}</Text>
-      <Text color={t.dim}>It asks two or three questions and proposes an agent. Nothing is created without you.</Text>
+      <Text bold color={t.heading}>{L('Tuca · novo agente', 'The Tuca · new agent')}</Text>
+      <Text color={t.dim}>{L('Ele faz duas ou três perguntas e propõe um agente. Nada é criado sem você.', 'It asks two or three questions and proposes an agent. Nothing is created without you.')}</Text>
       {conv.error ? <Text color={t.danger}>{conv.error}</Text> : null}
-      {!conv.id && !conv.error ? <Text color={t.faint}>Calling the Tuca…</Text> : null}
+      {!conv.id && !conv.error ? <Text color={t.faint}>{L('Chamando o Tuca…', 'Calling the Tuca…')}</Text> : null}
       {messages.map((m) => {
-        const who = m.author.kind === 'me' ? 'you' : m.author.kind === 'agent' ? (tuca?.name ?? 'Tuca') : m.author.kind
+        const who = m.author.kind === 'me' ? L('você', 'you') : m.author.kind === 'agent' ? (tuca?.name ?? 'Tuca') : m.author.kind
         const color = m.author.kind === 'me' ? t.me : tuca ? agentColor(t, tuca.color) : t.accentAlt
         return (
           <Box key={m.id} flexDirection="column" marginTop={1}>

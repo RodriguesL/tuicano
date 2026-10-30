@@ -6,6 +6,7 @@
 import { useState, type ReactNode } from 'react'
 import { Box, Text, useInput } from 'ink'
 import { agentById, store } from '../store'
+import { L } from '../../shared/lang'
 import { useOverlay, type ScreenProps } from '../overlays/api'
 import { useTheme } from '../theme/context'
 import { ago } from '../../shared/format'
@@ -24,9 +25,9 @@ const toWeek = (d: number): number => (d === 0 ? 7 : d)
 function when(r: Routine, connectors: { id: string; name: string }[]): string {
   const trigger = r.trigger
   if (!trigger) return describeSchedule(r.schedule)
-  if (trigger.kind === 'webhook') return 'when called on this computer'
-  const name = connectors.find((c) => c.id === trigger.connectorId)?.name ?? 'a connector'
-  return `every ${trigger.everyMinutes} min on new ${name}`
+  if (trigger.kind === 'webhook') return L('quando chamada neste computador', 'when called on this computer')
+  const name = connectors.find((c) => c.id === trigger.connectorId)?.name ?? L('um conector', 'a connector')
+  return L(`a cada ${trigger.everyMinutes} min em novo ${name}`, `every ${trigger.everyMinutes} min on new ${name}`)
 }
 
 interface Draft {
@@ -86,7 +87,7 @@ export function Routines({ state, active }: ScreenProps): ReactNode {
   const at = Math.max(0, Math.min(cursor, state.routines.length - 1))
   const r = state.routines[at]
 
-  const open = (draft: Draft): void => overlay.sheet({ title: draft.id ? 'Edit routine' : 'New routine', render: (close) => <RoutineSheet state={state} initial={draft} close={close} /> })
+  const open = (draft: Draft): void => overlay.sheet({ title: draft.id ? L('Editar rotina', 'Edit routine') : L('Nova rotina', 'New routine'), render: (close) => <RoutineSheet state={state} initial={draft} close={close} /> })
 
   useInput(
     (input, key) => {
@@ -99,7 +100,7 @@ export function Routines({ state, active }: ScreenProps): ReactNode {
       }
       if (!r) return
       if (input === 'e') return open(draftFrom(r))
-      if (input === 'd') return overlay.confirm({ title: 'Delete the routine?', detail: r.name, yes: 'delete', onYes: () => store.removeRoutine(r.id) })
+      if (input === 'd') return overlay.confirm({ title: L('Apagar a rotina?', 'Delete the routine?'), detail: r.name, yes: L('apagar', 'delete'), onYes: () => store.removeRoutine(r.id) })
       if (input === 'R') return store.runRoutine(r.id)
       // Toggle by saving the routine with `enabled` flipped (spec §3.1 #43).
       if (input === ' ') {
@@ -108,10 +109,10 @@ export function Routines({ state, active }: ScreenProps): ReactNode {
       }
       if (input === 'c') {
         // What the trigger finds now (spec §3.1 #55): shown as it comes, error included.
-        if (!r.trigger) return overlay.note('this routine runs on a schedule — nothing to check')
-        overlay.note('checking…')
+        if (!r.trigger) return overlay.note(L('esta rotina roda num horário — nada para checar', 'this routine runs on a schedule — nothing to check'))
+        overlay.note(L('checando…', 'checking…'))
         void store.checkTrigger(r.trigger).then(
-          (text) => overlay.note(text || 'nothing new'),
+          (text) => overlay.note(text || L('nada novo', 'nothing new')),
           (e: unknown) => overlay.note(e instanceof Error ? e.message : String(e))
         )
         return
@@ -124,19 +125,19 @@ export function Routines({ state, active }: ScreenProps): ReactNode {
   const rows: Row[] = state.routines.map((r) => {
     const agent = agentById(state, r.agentId)
     const conv = state.conversations.find((c) => c.id === r.conversationId)
-    const where = conv ? (conv.kind === 'channel' ? `#${conv.name}` : `DM ${agentById(state, conv.name)?.name ?? 'agent'}`) : 'a gone conversation'
+    const where = conv ? (conv.kind === 'channel' ? `#${conv.name}` : L(`DM ${agentById(state, conv.name)?.name ?? 'agente'}`, `DM ${agentById(state, conv.name)?.name ?? 'agent'}`)) : L('uma conversa que sumiu', 'a gone conversation')
     return {
       key: r.id,
-      label: `${agent?.name ?? 'agent'} · ${r.name}`,
-      hint: `${when(r, state.connectors)} · ${r.enabled ? 'on' : 'off'} · ${where} · ${r.lastAt ? `last ${ago(r.lastAt)}` : 'never ran'}`
+      label: `${agent?.name ?? L('agente', 'agent')} · ${r.name}`,
+      hint: L(`${when(r, state.connectors)} · ${r.enabled ? 'ligada' : 'desligada'} · ${where} · ${r.lastAt ? `última ${ago(r.lastAt)}` : 'nunca rodou'}`, `${when(r, state.connectors)} · ${r.enabled ? 'on' : 'off'} · ${where} · ${r.lastAt ? `last ${ago(r.lastAt)}` : 'never ran'}`)
     }
   })
 
   return (
     <Box flexDirection="column">
-      <Text bold color={t.heading}>{`Routines (${state.routines.length})`}</Text>
-      <List rows={rows} cursor={at} active={active} empty="No routines yet. Press n to schedule one." />
-      {state.routines.length && state.routines.every((x) => !x.enabled) ? <Text color={t.faint}>every routine is off</Text> : null}
+      <Text bold color={t.heading}>{L(`Rotinas (${state.routines.length})`, `Routines (${state.routines.length})`)}</Text>
+      <List rows={rows} cursor={at} active={active} empty={L('Nenhuma rotina ainda. Aperte n para agendar uma.', 'No routines yet. Press n to schedule one.')} />
+      {state.routines.length && state.routines.every((x) => !x.enabled) ? <Text color={t.faint}>{L('toda rotina está desligada', 'every routine is off')}</Text> : null}
       {active ? <Hint keys={[['n', 'new'], ['e', 'edit'], ['space', 'on/off'], ['R', 'run now'], ['c', 'check trigger'], ['d', 'delete'], ['Enter', 'open']]} /> : null}
     </Box>
   )
@@ -155,11 +156,11 @@ function RoutineSheet({ state, initial, close }: { state: ScreenProps['state']; 
   const dm = state.conversations.find((c) => c.kind === 'dm' && c.name === draft.agentId)
 
   const fields: FieldSpec[] = [
-    { id: 'name', label: 'Name', kind: 'text', value: draft.name, placeholder: 'Good morning', onChange: (v) => set({ name: v }) },
-    { id: 'prompt', label: 'What to do', kind: 'lines', value: draft.prompt, placeholder: 'As you would write it in a message.', onChange: (v) => set({ prompt: v }) },
+    { id: 'name', label: L('Nome', 'Name'), kind: 'text', value: draft.name, placeholder: L('Bom dia', 'Good morning'), onChange: (v) => set({ name: v }) },
+    { id: 'prompt', label: L('O que fazer', 'What to do'), kind: 'lines', value: draft.prompt, placeholder: L('Como você escreveria numa mensagem.', 'As you would write it in a message.'), onChange: (v) => set({ prompt: v }) },
     {
       id: 'agent',
-      label: 'Agent',
+      label: L('Agente', 'Agent'),
       kind: 'select',
       value: draft.agentId,
       options: agents.map((a) => ({ value: a.id, label: a.name })),
@@ -167,24 +168,24 @@ function RoutineSheet({ state, initial, close }: { state: ScreenProps['state']; 
     },
     {
       id: 'where',
-      label: 'Where to post',
+      label: L('Onde postar', 'Where to post'),
       kind: 'select',
       value: draft.conversationId || dm?.id || '',
       options: [
-        ...(dm ? [{ value: dm.id, label: `DM with ${agent?.name ?? 'the agent'}` }] : []),
+        ...(dm ? [{ value: dm.id, label: L(`DM com ${agent?.name ?? 'o agente'}`, `DM with ${agent?.name ?? 'the agent'}`) }] : []),
         ...channels.map((c) => ({ value: c.id, label: `#${c.name}` }))
       ],
       onChange: (v) => set({ conversationId: v })
     },
     {
       id: 'kind',
-      label: 'Trigger',
+      label: L('Quando roda', 'When it runs'),
       kind: 'select',
       value: draft.kind,
       options: [
-        { value: 'schedule', label: 'At a time' },
-        { value: 'poll', label: 'New connector item' },
-        { value: 'local', label: 'Local call' }
+        { value: 'schedule', label: L('Num horário', 'At a time') },
+        { value: 'poll', label: L('Item novo de conector', 'New connector item') },
+        { value: 'local', label: L('Chamada local', 'Local call') }
       ],
       hint: draft.kind === 'local' ? webhookUrl(draft.token) : undefined,
       onChange: (v) => set({ kind: v as Draft['kind'] })
@@ -193,35 +194,35 @@ function RoutineSheet({ state, initial, close }: { state: ScreenProps['state']; 
 
   if (draft.kind === 'schedule')
     fields.push(
-      { id: 'days', label: 'Days', kind: 'text', value: draft.days, hint: '1 Mon … 7 Sun, e.g. 1,2,3,4,5', onChange: (v) => set({ days: v }) },
-      { id: 'time', label: 'Time', kind: 'text', value: draft.time, hint: 'HH:MM', onChange: (v) => set({ time: v }) },
-      { id: 'once', label: 'Run once then turn off', kind: 'toggle', value: draft.once ? 'on' : 'off', onChange: (v) => set({ once: v === 'on' }) }
+      { id: 'days', label: L('Dias', 'Days'), kind: 'text', value: draft.days, hint: L('1 Seg … 7 Dom, ex.: 1,2,3,4,5', '1 Mon … 7 Sun, e.g. 1,2,3,4,5'), onChange: (v) => set({ days: v }) },
+      { id: 'time', label: L('Horário', 'Time'), kind: 'text', value: draft.time, hint: 'HH:MM', onChange: (v) => set({ time: v }) },
+      { id: 'once', label: L('Rodar uma vez e desligar', 'Run once then turn off'), kind: 'toggle', value: draft.once ? 'on' : 'off', onChange: (v) => set({ once: v === 'on' }) }
     )
   if (draft.kind === 'poll')
     fields.push(
-      { id: 'connector', label: 'Connector', kind: 'select', value: draft.connectorId || state.connectors[0]?.id || '', options: state.connectors.map((c) => ({ value: c.id, label: c.name })), onChange: (v) => set({ connectorId: v }) },
-      { id: 'tool', label: 'Read tool', kind: 'text', value: draft.tool, hint: 'e.g. list_issues', onChange: (v) => set({ tool: v }) },
-      { id: 'every', label: 'Check every (minutes)', kind: 'text', value: draft.everyMinutes, onChange: (v) => set({ everyMinutes: v }) }
+      { id: 'connector', label: L('Conector', 'Connector'), kind: 'select', value: draft.connectorId || state.connectors[0]?.id || '', options: state.connectors.map((c) => ({ value: c.id, label: c.name })), onChange: (v) => set({ connectorId: v }) },
+      { id: 'tool', label: L('Ferramenta de leitura', 'Read tool'), kind: 'text', value: draft.tool, hint: L('ex.: list_issues', 'e.g. list_issues'), onChange: (v) => set({ tool: v }) },
+      { id: 'every', label: L('Olhar a cada (minutos)', 'Check every (minutes)'), kind: 'text', value: draft.everyMinutes, onChange: (v) => set({ everyMinutes: v }) }
     )
   // The trigger form checks the trigger before saving (spec §3.1 #55): an action
   // field, so no bare key fights the text fields.
   if (draft.kind !== 'schedule')
     fields.push({
       id: 'check',
-      label: 'Check the trigger now',
+      label: L('Checar o gatilho agora', 'Check the trigger now'),
       kind: 'action',
-      value: 'Check',
+      value: L('Checar', 'Check'),
       onActivate: () => {
         const trigger = triggerOf(draft)
         if (!trigger) return
-        void store.checkTrigger(trigger).then((text) => overlay.note(text || 'nothing new'), (e: unknown) => overlay.note(e instanceof Error ? e.message : String(e)))
+        void store.checkTrigger(trigger).then((text) => overlay.note(text || L('nada novo', 'nothing new')), (e: unknown) => overlay.note(e instanceof Error ? e.message : String(e)))
       }
     })
 
   const save = async (): Promise<void> => {
-    if (!draft.name.trim()) return setError('give it a name')
-    if (!draft.prompt.trim()) return setError('say what to do')
-    if (draft.kind === 'schedule' && !validTime(draft.time)) return setError('the time must be HH:MM')
+    if (!draft.name.trim()) return setError(L('dê um nome', 'give it a name'))
+    if (!draft.prompt.trim()) return setError(L('diga o que fazer', 'say what to do'))
+    if (draft.kind === 'schedule' && !validTime(draft.time)) return setError(L('o horário deve ser HH:MM', 'the time must be HH:MM'))
     setBusy(true)
     setError(undefined)
     try {
@@ -238,7 +239,7 @@ function RoutineSheet({ state, initial, close }: { state: ScreenProps['state']; 
     }
   }
 
-  return <Form fields={fields} onSubmit={save} onCancel={close} error={error} busy={busy} submitLabel={draft.id ? 'Save' : 'Create'} />
+  return <Form fields={fields} onSubmit={save} onCancel={close} error={error} busy={busy} submitLabel={draft.id ? L('Salvar', 'Save') : L('Criar', 'Create')} />
 }
 
 // The trigger the draft describes, or undefined for a plain schedule.

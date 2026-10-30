@@ -7,6 +7,7 @@ import { Box, Text, useInput } from 'ink'
 import { store } from '../store'
 import { client } from '../client'
 import { computerOf, slug, type State } from '../../app/store'
+import { L } from '../../shared/lang'
 import { useOverlay, type ScreenProps } from '../overlays/api'
 import { agentColor, useTheme } from '../theme/context'
 import { Bar, Hint, List, type Row } from '../ui/kit'
@@ -69,6 +70,17 @@ type Sel =
 
 const selKey = (s: Sel): string => (s.t === 'grant' ? `grant:${s.id}` : s.t === 'folder' ? `folder:${s.name}` : s.t)
 
+// The computer's actions, labeled as the window's ComputerCard labels them. Built
+// when used, not in a module constant: the language isn't known when this module
+// loads (CONTRIBUTING.md).
+const computerActions = (): readonly { id: 'refresh' | 'start' | 'restart' | 'open_folder' | 'erase'; label: string }[] => [
+  { id: 'refresh', label: L('verificar de novo', 'refresh') },
+  { id: 'start', label: L('ligar agora', 'start') },
+  { id: 'restart', label: L('reiniciar', 'restart') },
+  { id: 'open_folder', label: L('abrir pasta', 'open folder') },
+  { id: 'erase', label: L('apagar computador', 'erase') }
+]
+
 export function AgentPage({ state, active, id, draft: proposed, fromMessage }: ScreenProps & { id?: string; draft?: Agent; fromMessage?: string }): ReactNode {
   const t = useTheme()
   const overlay = useOverlay()
@@ -88,7 +100,7 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
   const model = modelInfo(draft.modelId)
   const engine: EngineId = model?.engine ?? usable[0] ?? 'claude'
   const chosen = state.conversations.filter((c) => c.kind === 'channel' && c.members.includes(draft.id)).map((c) => c.id)
-  const handleErr = !HANDLE_OK.test(draft.handle) ? 'Use 2 to 32 lowercase letters, numbers, - or _.' : state.agents.some((a) => a.handle === draft.handle && a.id !== draft.id) ? `@${draft.handle} already exists.` : null
+  const handleErr = !HANDLE_OK.test(draft.handle) ? L('Use 2 a 32 letras minúsculas, números, - ou _.', 'Use 2 to 32 lowercase letters, numbers, - or _.') : state.agents.some((a) => a.handle === draft.handle && a.id !== draft.id) ? L(`@${draft.handle} já existe.`, `@${draft.handle} already exists.`) : null
   const canSave = draft.name.trim().length > 0 && !handleErr && !!modelInfo(draft.modelId)?.id
   const computer: ComputerChoice = draft.computer ? (draft.computerKind ?? 'linux') : 'none'
   const info = draft.id ? computerOf(state, draft.id) : undefined
@@ -106,30 +118,30 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
     sels.push(sel)
   }
 
-  head('Identity')
-  put({ t: 'name' }, { label: 'Name', hint: draft.name || '—' })
+  head(L('Identidade', 'Identity'))
+  put({ t: 'name' }, { label: L('Nome', 'Name'), hint: draft.name || '—' })
   put({ t: 'handle' }, { label: '@handle', hint: `@${draft.handle || 'handle'}` })
-  put({ t: 'role' }, { label: 'Role', hint: draft.role || '—' })
-  put({ t: 'color' }, { label: 'Colour', hint: draft.color, color: agentColor(t, draft.color) })
-  put({ t: 'instructions' }, { label: 'Instructions', hint: draft.instructions.split('\n')[0]?.slice(0, 60) || '(empty)' })
-  head('Harness and model')
-  put({ t: 'harness' }, { label: 'Harness', hint: usable.length ? ENGINES[engine].label : 'no harness is ready' })
-  put({ t: 'model' }, { label: 'Model', hint: model?.label ?? draft.modelId })
-  put({ t: 'effort' }, { label: 'Effort', hint: draft.effort })
-  put({ t: 'limit' }, { label: 'Monthly limit', hint: `${draft.limit / 1_000_000}M tokens` })
+  put({ t: 'role' }, { label: L('Papel', 'Role'), hint: draft.role || '—' })
+  put({ t: 'color' }, { label: L('Cor', 'Color'), hint: draft.color, color: agentColor(t, draft.color) })
+  put({ t: 'instructions' }, { label: L('Instruções', 'Instructions'), hint: draft.instructions.split('\n')[0]?.slice(0, 60) || L('(vazio)', '(empty)') })
+  head(L('Harness e modelo', 'Harness and model'))
+  put({ t: 'harness' }, { label: 'Harness', hint: usable.length ? ENGINES[engine].label : L('nenhum harness pronto', 'no harness is ready') })
+  put({ t: 'model' }, { label: L('Modelo', 'Model'), hint: model?.label ?? draft.modelId })
+  put({ t: 'effort' }, { label: L('Esforço', 'Effort'), hint: draft.effort })
+  put({ t: 'limit' }, { label: L('Limite mensal', 'Monthly limit'), hint: `${draft.limit / 1_000_000}M tokens` })
   if (state.connectors.length) {
-    head('Grants')
+    head(L('Acessos', 'Grants'))
     for (const c of state.connectors) put({ t: 'grant', id: c.id }, { label: c.name, hint: draft.grants[c.id] ?? 'none' })
   }
-  head('Powers')
-  put({ t: 'memory' }, { label: 'Memory', hint: draft.memory })
-  put({ t: 'computer' }, { label: 'Computer', hint: computer === 'none' ? 'none' : `${computer}${info ? ` · ${info.state}` : ''}` })
-  put({ t: 'browser' }, { label: 'Browser', hint: draft.browser ? 'on' : 'off' })
-  put({ t: 'web' }, { label: 'Web', hint: draft.web === false ? 'off' : 'on' })
+  head(L('Poderes', 'Powers'))
+  put({ t: 'memory' }, { label: L('Memória', 'Memory'), hint: draft.memory })
+  put({ t: 'computer' }, { label: L('Computador', 'Computer'), hint: computer === 'none' ? L('nenhum', 'none') : `${computer}${info ? ` · ${info.state}` : ''}` })
+  put({ t: 'browser' }, { label: L('Navegador', 'Browser'), hint: draft.browser ? L('ligado', 'on') : L('desligado', 'off') })
+  put({ t: 'web' }, { label: 'Web', hint: draft.web === false ? L('desligada', 'off') : L('ligada', 'on') })
   if (!isNew && draft.computer) {
-    head('Folders')
-    put({ t: 'lend' }, { label: 'Lend a folder…', hint: 'type a path' })
-    for (const f of draft.folders ?? []) put({ t: 'folder', name: f.name }, { label: `/projetos/${f.name}`, hint: `${f.path}${f.readOnly ? ' · read only' : ' · read and write'}` })
+    head(L('Pastas', 'Folders'))
+    put({ t: 'lend' }, { label: L('Emprestar pasta…', 'Lend a folder…'), hint: L('digite um caminho', 'type a path') })
+    for (const f of draft.folders ?? []) put({ t: 'folder', name: f.name }, { label: `/projetos/${f.name}`, hint: `${f.path}${f.readOnly ? L(' · só leitura', ' · read only') : L(' · leitura e escrita', ' · read and write')}` })
   }
 
   const firstSel = Math.max(0, sels.findIndex((s) => s.t !== 'heading'))
@@ -165,9 +177,9 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
   const setComputer = (k: ComputerChoice): void => {
     if (k === 'mac' && draft.computerKind !== 'mac') {
       return overlay.confirm({
-        title: `Give ${draft.name || 'the agent'} this computer?`,
-        detail: 'Its commands run as you, with everything you have installed, and reach what you reach.',
-        yes: 'give it this computer',
+        title: L(`Dar este computador para ${draft.name || L('o agente', 'the agent')}?`, `Give ${draft.name || 'the agent'} this computer?`),
+        detail: L('Os comandos dele rodam como você, com tudo o que você tem instalado, e alcançam tudo o que você alcança.', 'Its commands run as you, with everything you have installed, and reach what you reach.'),
+        yes: L('dar este computador', 'give it this computer'),
         onYes: () => applyComputer('mac')
       })
     }
@@ -181,7 +193,7 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
   }
 
   const cycleHarness = (): void => {
-    if (!usable.length) return overlay.note('no harness is ready')
+    if (!usable.length) return overlay.note(L('nenhum harness pronto', 'no harness is ready'))
     const i = usable.indexOf(engine)
     const next = usable[(i + 1) % usable.length]!
     const first = isPlan(next, state.settings) ? MODELS.find((m) => m.engine === next) : undefined
@@ -191,29 +203,29 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
   // ---------- sheets ----------
 
   const editIdentity = (): void =>
-    overlay.sheet({ title: 'Identity', render: (close) => <IdentitySheet state={state} agent={draft} chosen={chosen} onSaved={setDraft} close={close} /> })
+    overlay.sheet({ title: L('Identidade', 'Identity'), render: (close) => <IdentitySheet state={state} agent={draft} chosen={chosen} onSaved={setDraft} close={close} /> })
 
   const openModel = (): void =>
-    overlay.sheet({ title: 'Harness and model', render: (close) => <ModelSheet settings={state.settings} value={draft.modelId} onPick={(modelId) => setDraft((d) => ({ ...d, modelId }))} close={close} /> })
+    overlay.sheet({ title: L('Harness e modelo', 'Harness and model'), render: (close) => <ModelSheet settings={state.settings} value={draft.modelId} onPick={(modelId) => setDraft((d) => ({ ...d, modelId }))} close={close} /> })
 
   const computerMenu = (): void => {
     if (isNew) return
     const agentId = draft.id
     overlay.sheet({
-      title: `Computer · ${draft.name || 'agent'}`,
+      title: L(`Computador · ${draft.name || L('agente', 'agent')}`, `Computer · ${draft.name || 'agent'}`),
       render: (close) => (
         <Form
-          fields={(['refresh', 'start', 'restart', 'open_folder', 'erase'] as const).map((a) => ({
-            id: a,
-            label: a.replace(/_/g, ' '),
+          fields={computerActions().map((a) => ({
+            id: a.id,
+            label: a.label,
             kind: 'action' as const,
-            value: a.replace(/_/g, ' '),
+            value: a.label,
             onActivate: () => {
-              if (a === 'erase') {
+              if (a.id === 'erase') {
                 close()
-                return overlay.confirm({ title: 'Erase its computer?', detail: 'Everything in it goes, including /work.', yes: 'erase', onYes: () => store.computerAction(agentId, 'erase') })
+                return overlay.confirm({ title: L('Apagar o computador dele?', 'Erase its computer?'), detail: L('Tudo o que tem nele vai embora, inclusive /work.', 'Everything in it goes, including /work.'), yes: L('apagar', 'erase'), onYes: () => store.computerAction(agentId, 'erase') })
               }
-              store.computerAction(agentId, a)
+              store.computerAction(agentId, a.id)
             }
           }))}
           onCancel={close}
@@ -225,30 +237,30 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
   // ---------- actions ----------
 
   const save = (): void => {
-    if (!canSave) return overlay.note(handleErr ?? 'give it a name')
+    if (!canSave) return overlay.note(handleErr ?? L('dê um nome', 'give it a name'))
     store
       .saveAgent(draft, chosen)
       .then(() => {
         if (isNew && fromMessage) store.settleDraft(fromMessage, draft.id)
         if (isNew) store.navigate({ kind: 'agent', id: draft.id })
-        else overlay.note('saved')
+        else overlay.note(L('salvo', 'saved'))
       })
       .catch((e: unknown) => overlay.note(e instanceof Error ? e.message : String(e)))
   }
 
   const test = (): void => {
     if (!draft.modelId) return
-    overlay.note('testing…')
+    overlay.note(L('testando…', 'testing…'))
     store
       .testEngine(draft.modelId)
-      .then((r) => overlay.note(r.ok ? `works: ${r.message}` : r.message))
+      .then((r) => overlay.note(r.ok ? L(`funciona: ${r.message}`, `works: ${r.message}`) : r.message))
       .catch((e: unknown) => overlay.note(e instanceof Error ? e.message : String(e)))
   }
 
   const login = (): void => {
     store
       .loginEngine(engine)
-      .then((r) => overlay.note(r.opened ? `a terminal opened for ${ENGINES[engine].label}` : `no terminal to open — run: ${r.command}`))
+      .then((r) => overlay.note(r.opened ? L(`um terminal abriu para o ${ENGINES[engine].label}`, `a terminal opened for ${ENGINES[engine].label}`) : L(`nenhum terminal para abrir — rode: ${r.command}`, `no terminal to open — run: ${r.command}`)))
       .catch((e: unknown) => overlay.note(e instanceof Error ? e.message : String(e)))
   }
 
@@ -256,17 +268,17 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
   // core, which validates it. The store action wraps a picker, so this one call
   // goes through the client instead of through it.
   const lend = (): void => {
-    if (isNew) return overlay.note('save the agent first')
+    if (isNew) return overlay.note(L('salve o agente primeiro', 'save the agent first'))
     const agentId = draft.id
     overlay.prompt({
-      title: 'Lend a folder',
-      label: 'Path',
+      title: L('Emprestar pasta', 'Lend a folder'),
+      label: L('Caminho', 'Path'),
       placeholder: '/Users/you/projects/app',
       onSubmit: async (path) => {
         // Through the application layer, like every other action: a renderer with no
         // picker lends a typed path, and the core answers with why not.
         const why = await store.lendFolderPath(agentId, path)
-        overlay.note(why ?? `lent ${path}`)
+        overlay.note(why ?? L(`emprestada ${path}`, `lent ${path}`))
       }
     })
   }
@@ -279,11 +291,11 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
   const activate = (sel: Sel | undefined): void => {
     switch (sel?.t) {
       case 'name':
-        return ask('Name', draft.name, (v) => setDraft((d) => ({ ...d, name: v, ...(isNew && !handleTyped ? { handle: slug(v) } : {}) })))
+        return ask(L('Nome', 'Name'), draft.name, (v) => setDraft((d) => ({ ...d, name: v, ...(isNew && !handleTyped ? { handle: slug(v) } : {}) })))
       case 'handle':
         return ask('@handle', draft.handle, (v) => (setHandleTyped(true), setDraft((d) => ({ ...d, handle: v.toLowerCase().replace(/\s/g, '') }))))
       case 'role':
-        return ask('Role', draft.role, (v) => setDraft((d) => ({ ...d, role: v })))
+        return ask(L('Papel', 'Role'), draft.role, (v) => setDraft((d) => ({ ...d, role: v })))
       case 'color':
         return cycle(COLORS, draft.color, (v) => setDraft((d) => ({ ...d, color: v })))
       case 'instructions':
@@ -295,7 +307,7 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
       case 'effort':
         return cycle(EFFORTS.map((e) => e.id), draft.effort, (v) => setDraft((d) => ({ ...d, effort: v })))
       case 'limit':
-        return ask('Monthly limit (millions of tokens)', String(draft.limit / 1_000_000), (v) => setDraft((d) => ({ ...d, limit: Math.max(0, Math.round(Number(v) * 1_000_000) || 0) })))
+        return ask(L('Limite mensal (milhões de tokens)', 'Monthly limit (millions of tokens)'), String(draft.limit / 1_000_000), (v) => setDraft((d) => ({ ...d, limit: Math.max(0, Math.round(Number(v) * 1_000_000) || 0) })))
       case 'grant':
         return cycle(LEVELS, draft.grants[sel.id] ?? 'none', (v) => setGrant(sel.id, v))
       case 'memory':
@@ -329,7 +341,7 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
       if (input === 'c' && !isNew) return computerMenu()
       if (input === 'v' && !isNew && draft.browser) return store.browserAction(draft.id, 'show')
       if (input === 'X' && !isNew && draft.browser)
-        return overlay.confirm({ title: 'Delete its browser logins?', detail: 'Logins, cookies and history go; the agent stays signed out.', yes: 'delete', onYes: () => store.browserAction(draft.id, 'clear') })
+        return overlay.confirm({ title: L('Apagar os logins do navegador dele?', 'Delete its browser logins?'), detail: L('Logins, cookies e histórico vão; o agente fica desconectado.', 'Logins, cookies and history go; the agent stays signed out.'), yes: L('apagar', 'delete'), onYes: () => store.browserAction(draft.id, 'clear') })
       if (input === 's' || input === 'S') return save()
       if (input === 'D' && !isNew) return void store.openDm(draft.id)
       if (input === 'A' && !isNew) return void store.archiveAgent(draft.id, !draft.archived)
@@ -346,19 +358,19 @@ export function AgentPage({ state, active, id, draft: proposed, fromMessage }: S
   return (
     <Box flexDirection="column">
       <Text bold color={t.heading}>
-        {isNew ? 'New agent' : draft.name || 'Agent'}
-        {draft.archived ? <Text color={t.warn}>{'  · archived'}</Text> : null}
+        {isNew ? L('Novo agente', 'New agent') : draft.name || L('Agente', 'Agent')}
+        {draft.archived ? <Text color={t.warn}>{L('  · arquivado', '  · archived')}</Text> : null}
       </Text>
-      <Text color={t.dim}>{`@${draft.handle || 'handle'} · ${draft.role || 'no role'}`}</Text>
+      <Text color={t.dim}>{`@${draft.handle || 'handle'} · ${draft.role || L('sem papel', 'no role')}`}</Text>
       <Text color={t.faint}>{`${ENGINES[engine].label} · ${model?.label ?? draft.modelId}`}</Text>
       <List rows={rows} cursor={at} active={active} />
       <Text>
-        <Text color={t.dim}>{'usage '}</Text>
+        <Text color={t.dim}>{L('uso ', 'usage ')}</Text>
         <Text color={t.text}>{`${tokens(draft.used)} / ${tokens(draft.limit)}`}</Text>
         <Text>{'  '}</Text>
         <Bar used={draft.used} limit={draft.limit} />
       </Text>
-      <Text color={t.faint}>{`channels: ${memberOf.length ? memberOf.join(', ') : 'none'}`}</Text>
+      <Text color={t.faint}>{L(`canais: ${memberOf.length ? memberOf.join(', ') : 'nenhum'}`, `channels: ${memberOf.length ? memberOf.join(', ') : 'none'}`)}</Text>
       {active ? (
         <Hint
           keys={[
@@ -390,16 +402,16 @@ function IdentitySheet({ state, agent, chosen, onSaved, close }: { state: State;
   const [instructions, setInstructions] = useState(agent.instructions)
   const [error, setError] = useState<string | undefined>()
   const [busy, setBusy] = useState(false)
-  const handleErr = !HANDLE_OK.test(handle) ? 'Use 2 to 32 lowercase letters, numbers, - or _.' : state.agents.some((a) => a.handle === handle && a.id !== agent.id) ? `@${handle} already exists.` : undefined
+  const handleErr = !HANDLE_OK.test(handle) ? L('Use 2 a 32 letras minúsculas, números, - ou _.', 'Use 2 to 32 lowercase letters, numbers, - or _.') : state.agents.some((a) => a.handle === handle && a.id !== agent.id) ? L(`@${handle} já existe.`, `@${handle} already exists.`) : undefined
   const fields: FieldSpec[] = [
-    { id: 'name', label: 'Name', kind: 'text', value: name, onChange: setName },
+    { id: 'name', label: L('Nome', 'Name'), kind: 'text', value: name, onChange: setName },
     { id: 'handle', label: '@handle', kind: 'text', value: handle, hint: handleErr, onChange: (v) => setHandle(v.toLowerCase().replace(/\s/g, '')) },
-    { id: 'role', label: 'Role', kind: 'text', value: role, onChange: setRole },
-    { id: 'color', label: 'Colour', kind: 'select', value: color, options: COLORS.map((c) => ({ value: c, label: c })), onChange: (v) => setColor(v as AgentColor) },
-    { id: 'instructions', label: 'Instructions', kind: 'lines', value: instructions, onChange: setInstructions }
+    { id: 'role', label: L('Papel', 'Role'), kind: 'text', value: role, onChange: setRole },
+    { id: 'color', label: L('Cor', 'Color'), kind: 'select', value: color, options: COLORS.map((c) => ({ value: c, label: c })), onChange: (v) => setColor(v as AgentColor) },
+    { id: 'instructions', label: L('Instruções', 'Instructions'), kind: 'lines', value: instructions, onChange: setInstructions }
   ]
   const submit = (): void => {
-    if (!name.trim()) return setError('Give it a name.')
+    if (!name.trim()) return setError(L('Dê um nome.', 'Give it a name.'))
     if (handleErr) return setError(handleErr)
     setBusy(true)
     setError(undefined)
@@ -415,7 +427,7 @@ function IdentitySheet({ state, agent, chosen, onSaved, close }: { state: State;
         setBusy(false)
       })
   }
-  return <Form title="Identity" fields={fields} error={error} busy={busy} onCancel={close} onSubmit={submit} />
+  return <Form title={L('Identidade', 'Identity')} fields={fields} error={error} busy={busy} onCancel={close} onSubmit={submit} />
 }
 
 // The model picker (spec §3.1 #45): the app's list on a plan, the harness's own
@@ -463,25 +475,25 @@ function ModelSheet({ settings, value, onPick, close }: { settings: Settings; va
     },
     {
       id: 'model',
-      label: 'Model',
+      label: L('Modelo', 'Model'),
       kind: 'select',
       value: model,
       options,
-      hint: list?.error ? `couldn't get the list: ${list.error}` : plan ? undefined : list ? undefined : 'fetching…',
+      hint: list?.error ? L(`não deu pra pegar a lista: ${list.error}`, `couldn't get the list: ${list.error}`) : plan ? undefined : list ? undefined : L('buscando…', 'fetching…'),
       onChange: setModel
     },
-    { id: 'name', label: 'Other model (exact name)', kind: 'text', value: name, placeholder: 'the exact model name', onChange: setName },
+    { id: 'name', label: L('Outro modelo (nome exato)', 'Other model (exact name)'), kind: 'text', value: name, placeholder: L('o nome exato do modelo', 'the exact model name'), onChange: setName },
     {
       id: 'test',
-      label: 'Test',
+      label: L('Testar', 'Test'),
       kind: 'action',
-      value: 'send a test',
+      value: L('mandar um teste', 'send a test'),
       onActivate: () => {
         const id = name.trim() ? customModel(engine, name) : model
-        setResult('testing…')
+        setResult(L('testando…', 'testing…'))
         store
           .testEngine(id)
-          .then((r) => setResult(r.ok ? `works: ${r.message}` : r.message))
+          .then((r) => setResult(r.ok ? L(`funciona: ${r.message}`, `works: ${r.message}`) : r.message))
           .catch((e: unknown) => setResult(e instanceof Error ? e.message : String(e)))
       }
     }

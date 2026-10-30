@@ -11,6 +11,11 @@
 > (concepts, numbered behaviours, build order, risks). That document is written in Portuguese — its
 > header flags it as the historical original — so the *form* is borrowed, not the language: this one
 > is English, like `docs/windows.md`, `CONTRIBUTING.md` and every comment in `src/`.
+>
+> **This is an independent fork.** It keeps `eduwxyz/tucano` as a *fetch-only* remote for reference
+> and has no intention of merging upstream, so nothing here is shaped as an upstream patch: the
+> commits are the fork's, the branch is the fork's, and the attribution Apache-2.0 asks for lives in
+> [`NOTICE`](../NOTICE) and the README.
 
 **Status:** draft · **Date:** 2026-10-30 · **Branch:** `feat/render-abstraction-tui`
 
@@ -85,9 +90,8 @@ global.
   nothing to keep awake). `screenshot`, and a browser op with no Chrome present, refuse with a clear
   message instead of hanging. `cipher` is the same `plainCipher` the tests and the fake mode already
   use — there is no OS keychain without Electron, and that is named in the code (`ponytail:`) and in
-  [§2.5](#25-what-the-terminal-genuinely-cannot-do). `localPortPair()` hands out the pair of ports
-  (`node:worker_threads`) a terminal client connects through, wrapping Node's `MessagePort` API
-  difference (its listener receives the value, not `{ data }`).
+  [§2.5](#25-what-the-terminal-genuinely-cannot-do). A terminal client reaches the core over the socket (spec §4); the wrapper in that same
+  file is what keeps Electron's port API and Node's apart.
 - **`src/host/ask.ts`** — the promise round-trip (`screenshot`, browser op) in one place, so neither
   implementation duplicates id counters and timeouts.
 - **`src/host/index.ts`** — `getHost()`: the installed host, else Electron when `process.parentPort`
@@ -144,8 +148,7 @@ src/tuicano/
 - **Connection:** the TUIcano client builds an `AppClient` over a `ClientPort` from the daemon's
   socket (`src/host/socket.ts`); it does not import the core at all. The seam exercised is the same
   one the GUI uses, and several panes are several clients of one core ([§4](#4-the-daemon-the-transports-and-herdr)).
-  The in-process pair (`localPortPair`) stays for embedding the core in someone else's process.
-- **One data folder:** enforced by the daemon, which takes `<dataDir>/tuicano.lock` (a pid) before it
+  - **One data folder:** enforced by the daemon, which takes `<dataDir>/tuicano.lock` (a pid) before it
   starts SQLite, the webhook listener and the routines. Clients take no lock, so several panes and a
   handful of one-shot calls share one core instead of racing it. Two clients on one folder was the
   race this avoids — and it was easy to hit: SQLite, the webhook port, and the same routines running
@@ -346,7 +349,7 @@ and what TUIcano does with it.
 | # | Method | In the GUI | In TUIcano | Phase |
 |---|---|---|---|---|
 | 1 | `snapshot` | `start()` at boot | the same `store.start()` at boot | P0 |
-| 2 | `artifactText` | side panel for a text artifact | the file is read straight from `<dataDir>/artifacts/<id>/<name>` (same process); `artifactText` stays for text the core truncates | P1 |
+| 2 | `artifactText` | side panel for a text artifact | the file is read straight from `<dataDir>/artifacts/<id>/<name>` (same process); `artifactText` stays for text the core truncates. A reply's artifacts are addressed by a sub-cursor (`←/→`), so `v` and `a` act on the one selected | P1 |
 | 3 | `sendMessage` | Enter in the composer | Enter in the composer | P0 |
 | 4 | `stopRun` | Stop button on the reply | `s` on the reply in progress | P1 |
 | 5 | `retryRun` | Retry button | `r` on the reply | P1 |
@@ -378,7 +381,7 @@ and what TUIcano does with it.
 | 31 | `confirmMemory` | "Still valid" | `c` | P2 |
 | 32 | `decideMemory` | Accept/Dismiss a pending one | `y`/`x`, also on the in-conversation card | P2 |
 | 33 | `forgetMemory` | Forget (with a reason) | `f` → optional reason | P2 |
-| 34 | `purgeMemory` | Erase the forgotten record | `P` → confirmation | P2 |
+| 34 | `purgeMemory` | Erase the forgotten record | `P` → confirmation; the card in a conversation acts on the memory the sub-cursor is on | P2 |
 | 35 | `editSummary` | edit the Summary at the top of the conversation | Summary overlay (`S`), `e` edits | P1 |
 | 36 | `summarizeNow` | Summarize now button | `s` in the Summary overlay | P1 |
 | 37 | `computerAction` | agent page: start/restart/erase/open folder/refresh | `c` on the agent page → menu; the open-folder item goes through the host | P4 |
@@ -406,7 +409,7 @@ and what TUIcano does with it.
 | 59 | `importTeam` | Import (a file) | `I` → file path: TUIcano reads it and sends the text (which is what the method takes) | P3 |
 | 60 | `backupNow` | Back up now | `b`: prints where the copy went | P3 |
 | 61 | `openBackups` | Open the backups folder | `B`: the host opens the folder through the OS (same prefix check) | P3 |
-| 62 | `report` | the Report screen (weekly) | the same screen, `←`/`→` changes week | P2 |
+| 62 | `report` | the Report screen (weekly) | the same screen, `←`/`→` changes week, with each agent's week cost and the skills it proposed | P2 |
 | 63 | `usage` | the Usage screen | the same screen without charts: bars and tables in text | P2 |
 | 64 | `setGithubToken` | Settings, GitHub token | `g` → prompt (the core checks it) | P3 |
 | 65 | `removeRoutine` | routine menu, Delete | `d` | P2 |
@@ -469,7 +472,7 @@ Literal count of `src/renderer/src/components/*.tsx`: **16**.
 
 | # | Component | What it is | In TUIcano | Phase |
 |---|---|---|---|---|
-| 1 | `Conversation.tsx` | conversation, messages, steps, receipt, approval card | `screens/Conversation.tsx` + `screens/ApprovalCard.tsx` | P0 |
+| 1 | `Conversation.tsx` | conversation, messages, steps, receipt, approval card | `screens/Conversation.tsx` (one screen, not two: the card lives in it) — the receipt sheet lists every turn of a reply, and a reply's artifacts and memory lines are addressed by a sub-cursor (`←/→`) | P0 |
 | 2 | `Sidebar.tsx` | channels, DMs, agents, navigation, unread | `screens/Sidebar.tsx` (same state, keys instead of clicks) | P0 |
 | 3 | `Pages.tsx` | `AgentPage`, `ApprovalsPage`, `ConnectorsPage`, `SettingsPage` | four screens under `screens/` | P0 (Approvals) / P2 / P3 |
 | 4 | `Panel.tsx` | side panel, artifact and service cards, browser | `overlays/Panel.tsx` + the graphics viewer | P1 / P4 |
@@ -478,7 +481,7 @@ Literal count of `src/renderer/src/components/*.tsx`: **16**.
 | 7 | `Memory.tsx` | memories, states, origin | `screens/Memory.tsx` | P2 |
 | 8 | `Routines.tsx` | routines, triggers, scheduling | `screens/Routines.tsx` | P2 |
 | 9 | `Skills.tsx` | skills, proposals, history | `screens/Skills.tsx` | P2 |
-| 10 | `Report.tsx` | the weekly report | `screens/Report.tsx` | P2 |
+| 10 | `Report.tsx` | the weekly report | `screens/Report.tsx`, with each agent's week cost and the skills it proposed | P2 |
 | 11 | `Usage.tsx` | usage, limits, cost | `screens/Usage.tsx` | P2 |
 | 12 | `Onboarding.tsx` | first-run introduction and the Tuca builder | `screens/Onboarding.tsx` (sequential prompts) | P3 / P1 (builder) |
 | 13 | `Tuca.tsx` | the Tuca's proposal card | inside `screens/Conversation.tsx` | P1 |
@@ -518,6 +521,26 @@ The app's remaining surfaces, one by one:
 | Open at login | login item / autostart | out of scope |
 | App menu | Electron's `Menu`, localised | `?` shows the keymap; there is no menu |
 
+### 3.6 Three gaps, and how they closed
+
+The three rows below were real gaps against the window, each marked in place while it was open. All
+three are closed now, in the core where the data was missing and in both renderers; the record stays
+because the *reasons* are worth keeping:
+
+| | Was | Closed by |
+|---|---|---|
+| **G1** | A reply that ran several turns showed one receipt. The `receipts` table had always held a row per turn; nothing carried them to a renderer. | `Db.receiptsFor` and `Run.receipts` in the core (filled on every turn's re-emit, riding the `message` event — no new `Api` method); the window's `ReceiptLine` and the terminal's receipt sheet (`t`) list the turns, oldest first, with a total. A single-turn reply renders as it always did. |
+| **G2** | The weekly report could not say what an agent cost, nor which skills it proposed. | `AgentReport.apiUsd` (present only when an engine reported a cost, so nobody prints `US$ 0.00` for silence) and `AgentReport.proposedSkills` (from `Skill.proposedBy`, active skills only), rendered in the window's `Report.tsx` and the terminal's `screens/Report.tsx`. |
+| **G3** | Artifacts and memories acted on the first match, so a reply with two images gave you one of them. | The terminal's conversation gained a sub-cursor (`←/→`, aliases `[`/`]`) over the selected reply's artifacts and memory lines; `a`, `v`, `y`/`x`, `f` and `c` act on what it points at. The window already had real lists. |
+
+Two limits are deliberate and stay:
+
+- A reply that has *both* several artifacts and several memories shares one sub-cursor index, clamped
+  per list, rather than carrying two. A reply with both is rare, and every case the contract lists has
+  one kind of list.
+- A message's inline footer still shows the last receipt as it always has; the per-turn breakdown lives
+  in the sheet, which is where the contract puts it.
+
 ## 4. The daemon, the transports, and herdr
 
 ### 4.1 Three modes, one wire
@@ -539,7 +562,7 @@ wants to call, and `approvals` is the gate — a keybind that approves is the wh
 
 | Transport | Who uses it | Where |
 |---|---|---|
-| **MessagePort** | the Electron window, handed over by main; the in-process pair for embedding | `src/host/electron.ts`, `localPortPair` in `src/host/node.ts` |
+| **MessagePort** | the Electron window, handed over by main | `src/host/electron.ts` |
 | **local socket** | TUIcano panes, one-shot commands, anything else that attaches | `src/host/socket.ts` |
 
 Newline-delimited JSON over a Unix domain socket (a named pipe on Windows), one message per line.
@@ -665,9 +688,20 @@ Two rules follow from this being a *file*, not a setting:
 
 ## 5. Phases
 
-Each phase is a set of rows in [§3](#3-the-parity-contract) that become reachable. This branch
-carries P0, the theme system, the screen contract, and is landing P1–P5 screen by screen; P6 and P7
-are written down and not built.
+Each phase is a set of rows in [§3](#3-the-parity-contract), and this is where each one stands today.
+"Done" means every row of that phase is reachable from a key and covered by a test; the three gaps that were open are closed, and
+[§3.6](#36-three-gaps-and-how-they-closed) records what they were.
+
+| Phase | State | What it is |
+|---|---|---|
+| **P0** | done | the abstraction (`src/host`, `src/app`), the critical path: sidebar, conversation with streaming, composer, the approvals gate, the graphics path, the theme system (`Ctrl+T`, 18 palettes) and the screen contract (`ui/kit`, the form engine, the overlay host). Verified by `test/tuicano-*.test.tsx` and `scripts/tour-tui.py` |
+| **P1** | done | the whole conversation: steps, the receipt sheet, stop/retry/continue, answering a question, artifacts, the summary, the Tuca's draft card, in-conversation memory lines, the three side panels |
+| **P2** | done | the pages: agent and new agent, connectors (with tool classification and the harnesses' own MCPs), memory, routines, skills, report, usage |
+| **P3** | done | settings (harnesses, models, tokens, team, backups, pause, quiet hours) and the first-run introduction |
+| **P4** | done, with the substitutions of [§2.5](#25-what-the-terminal-genuinely-cannot-do) | the agent's browser (live frames through the graphics path, take over/hide/clear) and its computer (state, actions, services, folders) |
+| **P5** | done | the six dialogs, search, the archived agents, the one-line banner in place of the splash, the key help — and the row-by-row audit this matrix is |
+| **P6** | written down, not built | the herdr plugin (below) |
+| **P7** | written down, not built | removing Electron (below) |
 
 - **P0 — the abstraction and the critical path (this branch).** `src/host` (Electron + Node),
   `src/app` (reduce, selectors, actions) with the GUI intact, and the TUIcano skeleton: it launches,

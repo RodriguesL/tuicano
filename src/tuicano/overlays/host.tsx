@@ -3,6 +3,7 @@
 // what the content means.
 import { Box, Text, useInput, useWindowSize } from 'ink'
 import { useState, type ReactNode } from 'react'
+import { L } from '../../shared/lang'
 import { useTheme } from '../theme/context'
 import { Form } from '../ui/form'
 import type { Overlay, Prompt } from './api'
@@ -46,7 +47,7 @@ function PromptOverlay({ prompt, onClose }: { prompt: Prompt; onClose: () => voi
       fields={[
         {
           id: 'value',
-          label: prompt.label ?? 'Value',
+          label: prompt.label ?? L('Valor', 'Value'),
           hint: prompt.hint,
           kind: 'text',
           value,
@@ -92,8 +93,8 @@ function ConfirmOverlay({ overlay, onClose }: { overlay: Extract<Overlay, { kind
       <Text color={t.text}>{overlay.title}</Text>
       {overlay.detail ? <Text color={t.dim}>{overlay.detail}</Text> : null}
       <Text color={t.faint}>
-        <Text color={t.danger}>{'y'}</Text> {busy ? 'working…' : overlay.yes} {'  ·  '}
-        <Text color={t.dim}>n</Text> cancel
+        <Text color={t.danger}>{'y'}</Text> {busy ? L('salvando…', 'working…') : overlay.yes} {'  ·  '}
+        <Text color={t.dim}>n</Text> {L('cancelar', 'cancel')}
       </Text>
     </Box>
   )

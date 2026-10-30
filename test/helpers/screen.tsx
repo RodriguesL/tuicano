@@ -2,6 +2,7 @@
 // gives it a fake one, so a screen's frame and its keys can be asserted instead of
 // looked at. Every screen test uses this, so they all press keys the same way.
 import { render } from 'ink-testing-library'
+import { setLang } from '../../src/shared/lang'
 import { createStore, type State } from '../../src/app/store'
 import { OverlayContext, type Overlay, type OverlayApi } from '../../src/tuicano/overlays/api'
 import { ThemeProvider } from '../../src/tuicano/theme/context'
@@ -68,10 +69,14 @@ export interface Mounted {
   press(...keys: string[]): Promise<void>
   type(text: string): Promise<void>
   overlay: ReturnType<typeof overlaySpy>
-  unmount(): void
+  /** Tears the instance down and lets Ink finish, so the next mount is clean. */
+  unmount(): Promise<void>
 }
 
 export function mount(node: (overlay: OverlayApi) => ReactNode, opts?: { theme?: string }): Mounted {
+  // Every screen test asserts English text, the language the tests were written in;
+  // the language-parity test pins 'pt' itself to check the other side.
+  setLang('en')
   const overlay = overlaySpy()
   const theme = findTheme(opts?.theme)
   const mounted = render(
@@ -91,7 +96,10 @@ export function mount(node: (overlay: OverlayApi) => ReactNode, opts?: { theme?:
     await new Promise((r) => setTimeout(r, 60))
   }
   return {
-    frame: () => mounted.frames.slice(since).join('\n') || (mounted.lastFrame() ?? ''),
+    // Ink writes the `<Static>` chunk (the banner) and the live frame in whatever
+    // order the commit produces, so the answer is "everything since the keypress, plus
+    // the newest frame" rather than whichever write happened to be last.
+    frame: () => `${mounted.frames.slice(since).join('\n')}\n${mounted.lastFrame() ?? ''}`,
     first: () => mounted.frames[0] ?? '',
     press: async (...keys) => {
       since = mounted.frames.length
@@ -104,7 +112,12 @@ export function mount(node: (overlay: OverlayApi) => ReactNode, opts?: { theme?:
       await settle()
     },
     overlay,
-    unmount: () => mounted.unmount()
+    unmount: async () => {
+      mounted.unmount()
+      // Ink finishes tearing down asynchronously; a test that mounts again straight
+      // away otherwise shares the previous instance's output.
+      await settle()
+    }
   }
 }
 

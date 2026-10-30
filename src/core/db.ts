@@ -508,6 +508,19 @@ export class Db {
       .run(r.messageId, r.agentId, r.engine, r.model, r.inputTokens, r.cacheReadTokens, r.outputTokens, r.ms, r.apiCostUsd ?? null, r.at, r.work ?? null)
   }
 
+  // Every turn of one reply, oldest first (spec §9): a reply can span several
+  // turns (a retry, a continuation), each with its own receipt row.
+  receiptsFor(messageId: string): Receipt[] {
+    return (this.db.prepare('SELECT * FROM receipts WHERE message_id = ? ORDER BY id').all(messageId) as Row[]).map((r) => ({
+      model: str(r['model']),
+      inputTokens: Number(r['input_tokens']),
+      cacheReadTokens: Number(r['cache_read_tokens']),
+      outputTokens: Number(r['output_tokens']),
+      ms: Number(r['ms']),
+      apiCostUsd: r['api_cost_usd'] == null ? undefined : Number(r['api_cost_usd'])
+    }))
+  }
+
   // Every receipt since `since`, oldest first: agent replies, and the router's and memory's turns.
   receiptsSince(since: number): (Receipt & { agentId: string; engine: string; messageId: string; at: number })[] {
     return (this.db.prepare('SELECT * FROM receipts WHERE at >= ? ORDER BY at').all(since) as Row[]).map((r) => ({

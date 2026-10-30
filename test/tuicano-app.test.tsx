@@ -22,14 +22,14 @@ describe('the router', () => {
     const m = mount(() => <TuiApp />)
     await m.press('\x14') // what a pty sends for Ctrl+T
     expect(m.frame()).toContain('Enter picks')
-    m.unmount()
+    await m.unmount()
   })
 
   it('opens search on / while the sidebar has the cursor', async () => {
     const m = mount(() => <TuiApp />)
     await m.press('/')
     expect(m.frame()).toContain('Search')
-    m.unmount()
+    await m.unmount()
   })
 
   it("keeps its letters in the sidebar: with the pane focused, `a` is the screen's", async () => {
@@ -57,7 +57,7 @@ describe('the router', () => {
     expect(m.frame()).toContain('· pane ·')
     await m.press(KEY.backtab)
     expect(m.frame()).toContain('· sidebar ·')
-    m.unmount()
+    await m.unmount()
   })
 
   it('opens the help on ? and closes it on any key', async () => {
@@ -66,6 +66,6 @@ describe('the router', () => {
     expect(m.frame()).toContain('keys')
     await m.press('x')
     expect(m.frame()).not.toContain('swap focus')
-    m.unmount()
+    await m.unmount()
   })
 })

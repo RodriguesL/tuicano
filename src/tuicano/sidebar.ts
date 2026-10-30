@@ -1,6 +1,7 @@
 // The sidebar's rows, built from the shared state (spec §3.3). Pure, so the
 // keyboard cursor and the rendering cannot disagree about what row 4 is.
 import { channelList, conversationTitle, pendingApprovals, type State, type View } from '../app/store'
+import { L } from '../shared/lang'
 
 export interface Row {
   key: string
@@ -17,23 +18,23 @@ export interface Row {
 // views, and a screen that lands later simply has more to show.
 export function sidebarRows(s: State): Row[] {
   const approvals = pendingApprovals(s).length
-  const rows: Row[] = [{ key: 'head:nav', label: 'Workspace', heading: true }]
-  rows.push({ key: 'nav:approvals', label: 'Approvals', badge: approvals || undefined, color: approvals ? '?' : undefined, view: { kind: 'approvals' } })
+  const rows: Row[] = [{ key: 'head:nav', label: L('Workspace', 'Workspace'), heading: true }]
+  rows.push({ key: 'nav:approvals', label: L('Aprovações', 'Approvals'), badge: approvals || undefined, color: approvals ? '?' : undefined, view: { kind: 'approvals' } })
   const nav: [string, View['kind'], string][] = [
-    ['Usage', 'usage', 'u'],
-    ['Connectors', 'connectors', 'c'],
-    ['Memory', 'memory', 'm'],
-    ['Routines', 'routines', 'r'],
+    [L('Uso e limites', 'Usage and limits'), 'usage', 'u'],
+    [L('Conectores', 'Connectors'), 'connectors', 'c'],
+    [L('Memória', 'Memory'), 'memory', 'm'],
+    [L('Rotinas', 'Routines'), 'routines', 'r'],
     ['Skills', 'skills', 'k'],
-    ['Report', 'report', 'b'],
-    ['Settings', 'settings', ',']
+    [L('Boletim', 'Report'), 'report', 'b'],
+    [L('Configurações', 'Settings'), 'settings', ',']
   ]
   for (const [label, kind, hint] of nav) rows.push({ key: `nav:${kind}`, label, hint, view: { kind } as View })
   // The views the window reaches from a button: making an agent, and the Tuca's
   // builder. Without these two rows the terminal could not reach them at all.
-  rows.push({ key: 'nav:new-agent', label: 'New agent', hint: 'g · blank', view: { kind: 'new-agent' } as View })
-  rows.push({ key: 'nav:tuca', label: 'The Tuca', hint: 't · builds agents', view: { kind: 'tuca' } as View })
-  rows.push({ key: 'head:channels', label: 'Channels', heading: true })
+  rows.push({ key: 'nav:new-agent', label: L('Novo agente', 'New agent'), hint: 'g · blank', view: { kind: 'new-agent' } as View })
+  rows.push({ key: 'nav:tuca', label: L('Tuca', 'Tuca'), hint: 't · builds agents', view: { kind: 'tuca' } as View })
+  rows.push({ key: 'head:channels', label: L('Canais', 'Channels'), heading: true })
   for (const c of channelList(s)) {
     const dm = c.kind === 'dm'
     rows.push({
@@ -46,15 +47,10 @@ export function sidebarRows(s: State): Row[] {
   }
   const agents = s.agents.filter((x) => !x.archived)
   if (agents.length) {
-    rows.push({ key: 'head:agents', label: 'Agents', heading: true })
-    for (const a of agents) rows.push({ key: `agent:${a.id}`, label: `@${a.handle}`, hint: `${a.role.slice(0, 20) || 'agent'} · e = page`, color: a.color, view: { kind: 'agent', id: a.id } })
+    rows.push({ key: 'head:agents', label: L('Agentes', 'Agents'), heading: true })
+    for (const a of agents) rows.push({ key: `agent:${a.id}`, label: `@${a.handle}`, hint: `${a.role.slice(0, 20) || L('agente', 'agent')} · e = page`, color: a.color, view: { kind: 'agent', id: a.id } })
   }
   return rows
-}
-
-// The conversation on screen, when the view is one.
-export function openConversation(s: State): string | undefined {
-  return s.view?.kind === 'conversation' ? s.view.id : undefined
 }
 
 /** The rows that can be opened, in order, so a cursor index maps to something. */

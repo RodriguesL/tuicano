@@ -25,7 +25,7 @@ describe('the approval list', () => {
     await m.press('y')
     expect(decide).toHaveBeenCalledWith('second', 'approved', undefined, false)
     decide.mockRestore()
-    m.unmount()
+    await m.unmount()
   })
 
   it('decides the first when the cursor never moved', async () => {
@@ -34,7 +34,7 @@ describe('the approval list', () => {
     await m.press('y')
     expect(decide).toHaveBeenCalledWith('first', 'approved', undefined, false)
     decide.mockRestore()
-    m.unmount()
+    await m.unmount()
   })
 
   it('arms a high-risk one instead of approving it', async () => {
@@ -45,6 +45,6 @@ describe('the approval list', () => {
     expect(decide).not.toHaveBeenCalled()
     expect(m.frame()).toContain('press the same key again')
     decide.mockRestore()
-    m.unmount()
+    await m.unmount()
   })
 })

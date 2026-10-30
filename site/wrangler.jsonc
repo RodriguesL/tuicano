@@ -1,3 +1,4 @@
+// Upstream Tucano's site (this fork does not deploy it): the tucano.sh domains belong to upstream.
 // The site is served by Cloudflare as static files (no Worker code runs):
 //   cd site && npx wrangler deploy
 {

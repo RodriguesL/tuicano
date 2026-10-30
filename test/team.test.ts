@@ -73,6 +73,28 @@ describe('the report', () => {
     // The week before had nothing.
     expect(report(db, now, new Date(2026, 9, 19).getTime()).agents[0]!.total).toEqual({ replies: 0, ok: 0 })
   })
+
+  it('attributes the week cost and proposed skills to each agent (spec §9, §18)', () => {
+    const db = fresh()
+    db.saveAgent(agent('s', 'staff'))
+    db.saveAgent(agent('p', 'pm'))
+    db.createConversation({ id: 'c', kind: 'dm', name: 's', members: ['s'] })
+    const now = new Date(2026, 9, 28, 12).getTime() // a Wednesday
+    db.saveMessage({ id: 'm1', conversationId: 'c', author: { kind: 'agent', id: 's' }, text: 'x', at: now, run: { status: 'done', steps: [], receipt: { model: 'opus', inputTokens: 1000, cacheReadTokens: 0, outputTokens: 0, ms: 2000 } } })
+    db.saveMessage({ id: 'm2', conversationId: 'c', author: { kind: 'agent', id: 'p' }, text: 'y', at: now, run: { status: 'done', steps: [{ id: 's', label: 'Respondeu', status: 'done' }] } })
+    // Claude Code reports what the same usage would cost; the other engine doesn't.
+    db.addReceipt({ messageId: 'm1', agentId: 's', engine: 'claude', model: 'opus', inputTokens: 1000, cacheReadTokens: 0, outputTokens: 0, ms: 2000, at: now, apiCostUsd: 0.75 })
+    db.addReceipt({ messageId: 'm2', agentId: 'p', engine: 'codex', model: 'gpt-5.6-luna', inputTokens: 500, cacheReadTokens: 0, outputTokens: 0, ms: 1000, at: now })
+    db.saveSkill({ id: 'k', name: 'testes-do-core', description: 'x', body: 'y', agents: [], state: 'active', proposedBy: 's', createdAt: now, updatedAt: now })
+
+    const r = report(db, now)
+    const staff = r.agents.find((a) => a.agentId === 's')!
+    const pm = r.agents.find((a) => a.agentId === 'p')!
+    expect(staff.apiUsd).toBe(0.75)
+    expect(pm.apiUsd).toBeUndefined() // no cost invented for an engine that reports none
+    expect(staff.proposedSkills).toEqual([{ skillId: 'k', name: 'testes-do-core' }])
+    expect(pm.proposedSkills).toEqual([])
+  })
 })
 
 describe('the subscription quota', () => {

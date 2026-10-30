@@ -78,4 +78,27 @@ describe('Report screen', () => {
     expect(spy.mock.calls[1]![0]!).toBeLessThan(first)
     m.unmount()
   })
+
+  it('shows the week cost per agent, or that it was not reported, and the proposed skills', async () => {
+    const priced: ReportData = {
+      ...report,
+      agents: [
+        { ...report.agents[0]!, agentId: 'a1', apiUsd: 0.5, proposedSkills: [{ skillId: 's1', name: 'release-notes' }] },
+        { ...report.agents[0]!, agentId: 'a2', problems: [], apiUsd: undefined, proposedSkills: undefined }
+      ]
+    }
+    vi.spyOn(store, 'loadReport').mockResolvedValue(priced)
+    const state = stateOf(
+      { type: 'settings', settings: settings() },
+      { type: 'agent', agent: agent({ id: 'a1', name: 'Lia' }) },
+      { type: 'agent', agent: agent({ id: 'a2', name: 'Rui' }) }
+    )
+    const m = mount(() => <Report state={state} active />)
+    await flush()
+    const frame = m.frame()
+    expect(frame).toContain('US$ 0.50')
+    expect(frame).toContain('cost not reported')
+    expect(frame).toContain('Proposed: release-notes')
+    m.unmount()
+  })
 })
