@@ -24,6 +24,7 @@ import { acquireLock } from './lock'
 import { hasTheme } from './theme'
 import { readConfig } from './config'
 import { resolveDataDir } from './paths'
+import { opensNothing, resolveOpen } from './open'
 import { runtime } from './runtime'
 import { attachPort } from './client'
 import { TuiApp } from './app'
@@ -39,6 +40,8 @@ const USAGE = `usage:
 
   --data <dir>   the data folder (default: the app's own, see docs/spec-tuicano.md §4.7)
   --theme <name> a theme (Ctrl+T in the client lists them all)
+  --open <what>  start looking at something: a screen name, a #channel, an @handle or an id
+  --popup        go away once a decision is made (a herdr popup pane, spec §5)
   --start        let a one-shot start a daemon when nothing is listening
   --no-spawn     never start a daemon; say what to run instead
   --to <id|#channel>   which conversation send talks to`
@@ -263,6 +266,12 @@ async function runTui(argv: string[]): Promise<void> {
   // in this process (spec §4).
   const { store } = await import('./store')
   await store.start()
+  // --open: what the pane is for (spec §5). Resolved against the snapshot, so a typo
+  // says what it could have been instead of opening the default conversation.
+  const opening = resolveOpen(store.getState(), runtime.open)
+  if (opening?.kind === 'view') store.navigate(opening.view)
+  else if (opening?.kind === 'dm') await store.openDm(opening.agentId)
+  else if (runtime.open) process.stderr.write(`tuicano: ${opensNothing(runtime.open)}\n`)
   // The alternate screen keeps the pane's scrollback intact. `interactive` comes
   // from the tty, not it from Ink's CI heuristic, so a pane behaves predictably;
   // the kitty keyboard protocol is left off because the multiplexer owns those
@@ -291,6 +300,8 @@ async function main(): Promise<void> {
   const info = argv.includes('--graphics-info')
   const draws = mode === 'tui' || mode === undefined
   runtime.dataDir = resolveDataDir(argv)
+  runtime.open = flag(argv, '--open')
+  runtime.popup = argv.includes('--popup')
   // The client's own settings (spec §2.7): a flag beats the config file, and an
   // unknown theme name falls back to the default with a word about it.
   const cfg = readConfig(runtime.dataDir)

@@ -1,0 +1,134 @@
+# The herdr plugin for TUIcano (docs/spec-tuicano.md §5, P6).
+#
+# herdr owns the layout, the keys and the events; TUIcano owns the core. Every command
+# here is `bin/bridge.mjs`, which is a one-shot process: it talks to the daemon over the
+# socket and exits. Nothing the plugin starts outlives its pane — the daemon is the
+# user's, never ours (see the ownership rule in the spec).
+#
+# Link it with:  herdr plugin link herdr-plugin
+# Unlink it with: herdr plugin unlink tuicano
+# Bind the actions in ~/.config/herdr/config.toml — the snippet is in README.md, because
+# the plugin does not write to your config.
+id = "tuicano"
+name = "TUIcano"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Tucano's agents, their channels and their approvals, in a herdr pane. Bridges to a TUIcano daemon; never starts one."
+platforms = ["macos", "linux"]
+
+# herdr runs this once when the plugin is linked or installed. It only makes sure the
+# terminal client is built (npm run build:tui) — the plugin ships no binaries.
+[[build]]
+command = ["node", "bin/bridge.mjs", "build"]
+platforms = ["macos", "linux"]
+
+# herdr runs [[startup]] hooks as one-shot commands, so this is housekeeping and not a
+# daemon: it prunes lends whose tab is long gone.
+[[startup]]
+command = ["node", "bin/bridge.mjs", "startup"]
+
+# A channel or a conversation in a split pane, already looking at it. Also the entrypoint
+# the link handlers use, so a clicked artifact lands in the conversation that showed it.
+[[panes]]
+id = "channel"
+title = "TUIcano"
+placement = "split"
+description = "a channel or conversation, from TUICANO_OPEN"
+command = ["node", "bin/bridge.mjs", "pane"]
+
+# A popup is session-modal, takes all input including Escape, has no pane id and emits no
+# pane lifecycle events: exactly what an approval card wants.
+[[panes]]
+id = "approvals"
+title = "TUIcano: approvals"
+placement = "popup"
+width = "66%"
+height = "50%"
+description = "decide what is waiting, with y / x / Y"
+command = ["node", "bin/bridge.mjs", "pane-approvals"]
+
+# The chooser is a popup, and it opens the split pane once you pick.
+[[panes]]
+id = "channels"
+title = "TUIcano: open a channel"
+placement = "popup"
+width = "54%"
+height = "60%"
+command = ["node", "bin/bridge.mjs", "channels"]
+
+[[actions]]
+id = "channels"
+title = "TUIcano: open a channel in a pane"
+description = "pick a channel or a DM, then open it in a split pane"
+contexts = ["global", "workspace", "tab", "pane"]
+command = ["node", "bin/bridge.mjs", "channels"]
+
+[[actions]]
+id = "approvals"
+title = "TUIcano: decide an approval"
+description = "the approval card as a popup, where a keypress decides"
+contexts = ["global"]
+command = ["node", "bin/bridge.mjs", "approvals"]
+
+[[actions]]
+id = "status"
+title = "TUIcano: status"
+description = "one line: approvals waiting, unread, agents working, paused or not"
+contexts = ["global"]
+command = ["node", "bin/bridge.mjs", "status"]
+
+[[actions]]
+id = "ask"
+title = "TUIcano: ask with the selected text"
+description = "sends what is selected in this pane to the conversation TUIcano last opened"
+contexts = ["pane"]
+command = ["node", "bin/bridge.mjs", "ask"]
+
+[[actions]]
+id = "lend"
+title = "TUIcano: lend this pane's folder to an agent"
+description = "lends the focused pane's folder (the worktree) to an agent, and gives it back when the tab closes"
+contexts = ["pane"]
+command = ["node", "bin/bridge.mjs", "lend"]
+
+[[actions]]
+id = "open-link"
+title = "TUIcano: open this link in TUIcano"
+description = "an artifact URL opens the conversation that showed it, instead of a browser"
+contexts = ["global"]
+command = ["node", "bin/bridge.mjs", "open-link"]
+
+[[events]]
+on = "pane.agent_detected"
+description = "remember which agent is in which pane, for the ask action"
+command = ["node", "bin/bridge.mjs", "event", "pane.agent_detected"]
+
+[[events]]
+on = "worktree.created"
+description = "remember the worktree behind a pane, which is what lend offers"
+command = ["node", "bin/bridge.mjs", "event", "worktree.created"]
+
+[[events]]
+on = "tab.closed"
+description = "give back the folders this tab borrowed"
+command = ["node", "bin/bridge.mjs", "event", "tab.closed"]
+
+[[events]]
+on = "workspace.closed"
+description = "give back the folders this workspace borrowed"
+command = ["node", "bin/bridge.mjs", "event", "workspace.closed"]
+
+# An artifact an agent showed is a `tucano://artifact/<id>/<name>` URL. Only URLs reach a
+# link handler, so a bare `@handle` in message text is not one: mentions are the `ask`
+# action instead (the spec says so).
+[[link_handlers]]
+id = "artifact"
+title = "Open the conversation that showed this artifact"
+pattern = "^tucano://artifact/"
+action = "open-link"
+
+[[link_handlers]]
+id = "agent"
+title = "Open this agent's DM in TUIcano"
+pattern = "^tucano://agent/"
+action = "open-link"

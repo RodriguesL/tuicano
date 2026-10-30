@@ -11,6 +11,10 @@ export interface Runtime {
   version: string
   /** The theme name from --theme or the config file; the picker changes it at runtime. */
   theme?: string
+  /** What to look at on start (--open): a view, a #channel, an @handle or an id. */
+  open?: string
+  /** A popup pane (--popup): it goes away once a decision is made, or on Escape. */
+  popup?: boolean
 }
 
 export const runtime: Runtime = {

@@ -251,9 +251,10 @@ watching an agent work.
 
 What can be proven without looking at a screen: the bytes of every sequence (unit tests, byte for
 byte: prefix, kitty's 4096-byte chunking, base64, the sixel header and palette), the image→cell
-math, protocol selection per terminal identifier, and decoder round-trips. What remains for a human
-eye is the final drawing — and `tuicano --graphics-info` prints the detection, the cell size and a
-test image, to be checked in a real terminal.
+math, protocol selection per terminal identifier, and decoder round-trips. The final drawing needs a
+human eye, and kitty has now had one ([§2.9](#29-what-has-been-seen-and-what-has-only-been-measured));
+`tuicano --graphics-info` prints the detection, the cell size and a test image, which is how the
+other two get checked.
 
 ### 2.5 What the terminal genuinely cannot do
 
@@ -335,6 +336,34 @@ The layers are quiet by construction — the root is inactive while an overlay i
 gone while an image is drawn — so a keypress has exactly one owner at a time. That is what keeps a
 screen at ~180 lines, and what makes every screen testable without a terminal
 (`test/helpers/screen.tsx` renders one with `ink-testing-library` and presses keys at it).
+
+### 2.9 What has been seen, and what has only been measured
+
+The graphics path makes three claims, and they are not equally confirmed. This is where a
+reader can tell which is which.
+
+| Claim | Evidence |
+|---|---|
+| **kitty** draws a real image in a real terminal | **seen by eye**, 2026-10-30, in kitty (the user ran it and photographed the result). The picture was `samplePng`'s 4-pixel-block checkerboard, orange on near-black: hard-edged, no torn rows, no banding, no shifted palette, no leftover escape text, and it did not overlap the text around it. The probe reported `212x56 cells of 9x18px` — the same cell size it reports inside a herdr pane — and the arithmetic checked out: a 32 px picture at a 9x18 px cell is 4x2 cells. |
+| **iTerm2** and **sixel** draw a real image | **bytes only.** Their exact output is pinned by unit tests (framing, chunking, palette, bands) and can be dumped with `--graphics-info`, and neither has been looked at in a terminal that speaks it. |
+| Inside **herdr** the path is chosen explicitly | **by construction**, and it is why the flag exists: a herdr pane reports `TERM_PROGRAM=herdr`, so auto-detection can only answer text there ([§4.6](#46-inside-herdr)). Every image surface the plugin opens passes `--graphics=<protocol>` rather than relying on detection. |
+
+The transcript of that kitty run, verbatim:
+
+```
+TUIcano 0.2.0 - bare terminal
+protocol: kitty (--graphics)
+terminal: TERM=xterm-kitty TERM_PROGRAM= tty=true
+grid: 212x56 cells of 9x18px
+picture: 32x32 png -> 4x2 cells at 32x32px
+data: /Users/nunes.lucas/Library/Application Support/Tucano
+```
+
+The last line is a second confirmation, and not about graphics: run from a checkout folder,
+a one-shot resolved its data folder to the **platform app-data directory**, not to a fresh
+`.tucano/` in the working directory — which is [§4.7](#47-the-data-folder-and-who-may-start-a-core)'s
+decision seen in the wild rather than in a test.
+
 
 ## 3. The parity contract
 

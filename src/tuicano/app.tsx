@@ -72,6 +72,16 @@ export function TuiApp(): ReactNode {
   // The first run, before anything else: the same gate the window uses (spec §3.4).
   const intro = state.ready && state.settings.onboarding?.done === false
 
+  // A popup pane (spec §5): herdr renders it session-modal, it has no pane id and it
+  // emits no lifecycle events, so the plugin cannot close it — it closes itself, once
+  // a decision has been made or the person presses Escape.
+  const popupStart = useRef<number | undefined>(undefined)
+  const pendingNow = state.approvals.filter((a) => a.state === 'pending').length
+  if (runtime.popup && popupStart.current === undefined) popupStart.current = pendingNow
+  useEffect(() => {
+    if (runtime.popup && popupStart.current !== undefined && pendingNow < popupStart.current) exit()
+  }, [pendingNow, exit])
+
   // A note is what just happened: it says its line and goes away.
   useEffect(() => {
     if (!note) return
