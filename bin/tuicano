@@ -1,0 +1,8 @@
+#!/usr/bin/env node
+// TUIcano, the terminal client (spec §1.5). The build step is deliberate: the
+// core's imports have no file extensions, so only a bundler can resolve them.
+import('../out/tuicano/index.js').catch((e) => {
+  console.error(`tuicano: could not start — ${e instanceof Error ? e.message : String(e)}`)
+  console.error('Build it first: npm run build:tui')
+  process.exit(1)
+})

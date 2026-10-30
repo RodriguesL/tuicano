@@ -7,9 +7,14 @@
   "license": "Apache-2.0",
   "type": "module",
   "main": "out/main/index.js",
+  "bin": {
+    "tuicano": "bin/tuicano"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:tui": "vite build --config tuicano.vite.config.ts",
+    "tui": "npm run build:tui && node out/tuicano/index.js",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
@@ -40,6 +45,8 @@
     "@modelcontextprotocol/sdk": "^1.32.1",
     "electron-updater": "^6.8.11",
     "gsap": "^3.14.2",
+    "ink": "^8.0.0",
+    "jpeg-js": "^0.4.4",
     "smol-toml": "^1.9.1"
   },
   "build": {

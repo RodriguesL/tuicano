@@ -6,10 +6,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { userInfo } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type { MessagePortMain } from 'electron'
-import { L, langOf, locale, setLang, type Lang } from '../shared/lang'
+import { L, langOf, locale, setLang } from '../shared/lang'
 import type { Api, CoreEvent, Method, Request, Wire } from '../shared/rpc'
-import { channelName, ENGINES, inQuietHours, modelInfo, WEBHOOK_PORT, type Agent, type BrowserReply, type Message, type EngineId, type EngineStatus, type Settings } from '../shared/types'
+import { channelName, ENGINES, inQuietHours, modelInfo, WEBHOOK_PORT, type Agent, type Message, type EngineId, type EngineStatus, type Settings } from '../shared/types'
 import { listModels, quietClaude, quietCodex, withChoice } from './harness'
 import { Db } from './db'
 import { claudeEngine, userProvider } from './engines/claude'
@@ -30,7 +29,10 @@ import { usage } from './usage'
 import { Skills } from './skills'
 import { backup, backupIfDue, exportTeam, importTeam } from './team'
 import { Telegram } from './telegram'
-import { mainCipher, plainCipher, Secrets } from './secrets'
+import { plainCipher, Secrets } from './secrets'
+import { getHost } from '../host'
+import { askBrowser, askScreenshot } from '../host/ask'
+import type { ClientPort, HostRequest } from '../host/types'
 import { Browser, type BrowserHost } from './browser'
 import { isWin, loginShell, onPath, osOf, shellCommand, terminalCommand } from './platform'
 import { ChromeBrowsers, hasChrome } from './chrome'
@@ -140,7 +142,7 @@ const gatewayLists = new Map<EngineId, Promise<{ models: string[]; error?: strin
 
 // ---------- ports ----------
 
-const ports = new Set<MessagePortMain>()
+const ports = new Set<ClientPort>()
 function emit(event: CoreEvent): void {
   const wire: Wire = { event }
   for (const p of ports) p.postMessage(wire)
@@ -170,54 +172,23 @@ const notifyAll = (title: string, body: string, conversationId?: string): void =
   void telegram?.notice(title, body)
 }
 
-// Asks the main process to do what only it can: open the browser or a folder, show a notification.
-type ToMain =
-  | { type: 'open'; url: string }
-  | { type: 'open_path'; path: string }
-  | { type: 'notify'; title: string; body: string; conversationId?: string; kind?: 'approval' | 'question' | 'done' }
-  | { type: 'login_item'; open: boolean }
-  | { type: 'busy'; busy: boolean }
-  | { type: 'lang'; lang: Lang }
-const toMain = (msg: ToMain): void =>
-  process.parentPort.postMessage(msg)
+// Asks the host to do what only it can: open the browser or a folder, show a
+// notification. The shapes stay the ones the Electron main process already handles.
+const toMain = (msg: HostRequest): void => getHost().request(msg)
 // The menu is the main process's: it follows the language picked here.
 toMain({ type: 'lang', lang: db.getSettings(DEFAULTS).language })
 
-// Screenshots use Electron's Chromium, which lives in the main process.
-const shots = new Map<string, { resolve: (b: Buffer) => void; reject: (e: Error) => void }>()
-// Agents' browsers too (spec §24).
-const pages = new Map<string, { resolve: (r: BrowserReply) => void; reject: (e: Error) => void }>()
-process.parentPort.on('message', (e) => {
-  const r = e.data as { type?: string; id: string; data?: unknown; error?: string; awake?: boolean; agentId?: string; shown?: boolean } | undefined
-  if (r?.type === 'power') return routines.setAwake(r.awake === true)
-  if (r?.type === 'browser-shown') return browser.setShown(r.agentId ?? '', r.shown === true)
-  if (r?.type === 'browser-result') {
-    const p = pages.get(r.id)
-    pages.delete(r.id)
-    if (r.error !== undefined) p?.reject(new Error(r.error))
-    else p?.resolve(r.data as BrowserReply)
-    return
-  }
-  if (r?.type !== 'screenshot-result') return
-  const p = shots.get(r.id)
-  shots.delete(r.id)
-  if (r.error !== undefined) p?.reject(new Error(r.error))
-  else p?.resolve(Buffer.from(String(r.data ?? ''), 'base64'))
+// Machine news the host sends on its own: the power state while an agent runs,
+// and whether I took over an agent's browser (spec §24). Screenshots and browser
+// replies are handled where they are asked for, in host/ask.ts.
+getHost().onMessage((r) => {
+  if (r.type === 'power') return routines.setAwake(r.awake)
+  if (r.type === 'browser-shown') browser.setShown(r.agentId, r.shown)
 })
-const shoot: Shooter = (opts) =>
-  new Promise((resolve, reject) => {
-    const id = randomUUID()
-    shots.set(id, { resolve, reject })
-    process.parentPort.postMessage({ type: 'screenshot', id, ...opts })
-  })
 
-const electronHost: BrowserHost = (agentId, op, args) =>
-  new Promise((resolve, reject) => {
-    const id = randomUUID()
-    pages.set(id, { resolve, reject })
-    process.parentPort.postMessage({ type: 'browser', id, agentId, op, args })
-    setTimeout(() => pages.get(id) && (pages.delete(id), reject(new Error(L('o navegador não respondeu em 60 s', "the browser didn't answer in 60 s")))), 60_000).unref()
-  })
+const shoot: Shooter = (opts) => askScreenshot(getHost(), opts)
+
+const browserHost: BrowserHost = (agentId, op, args) => askBrowser(getHost(), agentId, op, args)
 // Google Chrome when the Mac has it (Google refuses logins in embedded browsers); Electron's Chromium otherwise.
 const chrome =
   !fake && hasChrome()
@@ -228,9 +199,9 @@ const chrome =
         (agentId, jpeg) => browser.frame(agentId, jpeg)
       )
     : undefined
-const host: BrowserHost = chrome ? (agentId, op, args) => chrome.run(agentId, op, args) : electronHost
+const host: BrowserHost = chrome ? (agentId, op, args) => chrome.run(agentId, op, args) : browserHost
 
-const secrets = new Secrets(db, fake ? plainCipher : mainCipher(process.parentPort))
+const secrets = new Secrets(db, fake ? plainCipher : getHost().cipher())
 const browser = new Browser({
   host,
   db,
@@ -771,7 +742,7 @@ const api: Api = {
   }
 }
 
-function handle(port: MessagePortMain, req: Request): void {
+function handle(port: ClientPort, req: Request): void {
   const reply = (r: Omit<Extract<Wire, { id: number }>, 'id'>): void => port.postMessage({ id: req.id, ...r } satisfies Wire)
   const fn = api[req.method as Method] as ((p: unknown) => unknown) | undefined
   if (!fn) return reply({ error: `unknown method ${req.method}` })
@@ -786,11 +757,9 @@ function handle(port: MessagePortMain, req: Request): void {
     )
 }
 
-process.parentPort.on('message', (e) => {
-  const port = e.ports[0]
-  if (!port) return
+getHost().onPort((port) => {
   ports.add(port)
-  port.on('message', (m) => handle(port, m.data as Request))
+  port.on('message', (e) => handle(port, e.data as Request))
   port.on('close', () => ports.delete(port))
   port.start()
 })

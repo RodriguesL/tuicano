@@ -1,7 +1,6 @@
-// Connector credentials (tokens, OAuth state, env values) are encrypted with
-// the OS keychain before they reach SQLite. Only the main process can use
-// Electron's safeStorage, so the core asks it over the parent port.
-import { randomUUID } from 'node:crypto'
+// Connector credentials (tokens, OAuth state, env values) are encrypted before
+// they reach SQLite. The OS keychain lives outside the core, so whoever hosts it
+// supplies the cipher (see src/host).
 import type { Db } from './db'
 
 export interface Cipher {
@@ -13,28 +12,6 @@ export interface Cipher {
 export const plainCipher: Cipher = {
   encrypt: async (s) => `plain:${s}`,
   decrypt: async (s) => s.replace(/^plain:/, '')
-}
-
-type Reply = { type: 'secret-result'; id: string; data?: string; error?: string }
-
-export function mainCipher(port: Electron.ParentPort): Cipher {
-  const pending = new Map<string, { resolve: (v: string) => void; reject: (e: Error) => void }>()
-  port.on('message', (e) => {
-    const r = e.data as Reply | undefined
-    if (r?.type !== 'secret-result') return
-    const p = pending.get(r.id)
-    if (!p) return
-    pending.delete(r.id)
-    if (r.error !== undefined) p.reject(new Error(r.error))
-    else p.resolve(r.data ?? '')
-  })
-  const ask = (op: 'encrypt' | 'decrypt', data: string): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const id = randomUUID()
-      pending.set(id, { resolve, reject })
-      port.postMessage({ type: 'secret', id, op, data })
-    })
-  return { encrypt: (s) => ask('encrypt', s), decrypt: (s) => ask('decrypt', s) }
 }
 
 export class Secrets {
