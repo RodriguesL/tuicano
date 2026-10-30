@@ -2,8 +2,8 @@
 // core runs here as a plain module, so nothing can open a browser or screenshot.
 import { spawn } from 'node:child_process'
 import { MessageChannel, type MessagePort } from 'node:worker_threads'
-import { setLang } from '../shared/lang'
-import { plainCipher } from '../core/secrets'
+import { L, setLang } from '../shared/lang'
+import { plainCipher, type Cipher } from '../core/secrets'
 import type { ClientPort, Host, HostReply, HostRequest } from './types'
 
 // The OS opener, per platform: only the desktop can open a URL or a folder, and
@@ -52,9 +52,30 @@ export function nodeHost(opts?: { onPort?: (cb: (port: ClientPort) => void) => v
     // The core opens its client door through the host; hand that door to whoever
     // supplied the host, so they can feed it ports (we have none of our own).
     onPort: (cb) => opts?.onPort?.(cb),
+    // The single rule for secrets across the two hosts (spec §4.4): a secret is
+    // sealed by the host that wrote it, and a host never reads one it did not
+    // seal. The Electron app seals with the OS keychain (`safeStorage`); this host
+    // seals with plainCipher and refuses anything else, loudly, instead of handing
+    // the caller a keychain blob it would read as a password.
     // ponytail: no OS keychain without Electron, so connector secrets are stored
     // unencrypted in the TUI host; swap in a keyring-backed cipher when it lands.
-    cipher: () => plainCipher
+    cipher: () => nodeCipher
+  }
+}
+
+const nodeCipher: Cipher = {
+  encrypt: plainCipher.encrypt,
+  // async on purpose: a throw inside a function typed to return a promise has to
+  // reject, or a caller with a try/catch around await gets an uncaught exception.
+  decrypt: async (sealed) => {
+    if (!sealed.startsWith('plain:'))
+      throw new Error(
+        L(
+          'Um segredo deste banco foi cifrado pelo app (safeStorage) e só ele consegue lê-lo. Abra esta pasta com o Tucano, ou aponte o daemon pra uma pasta que ele mesmo criou (--data).',
+          'A secret in this database was sealed by the app (safeStorage) and only it can read it. Open this folder with Tucano, or point the daemon at a folder it sealed itself (--data).'
+        )
+      )
+    return plainCipher.decrypt(sealed)
   }
 }
 

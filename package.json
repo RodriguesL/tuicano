@@ -21,7 +21,9 @@
     "dist": "sh scripts/dist.sh",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
     "install-app": "npm run dist && sh scripts/install-app.sh",
-    "release": "sh scripts/release.sh"
+    "release": "sh scripts/release.sh",
+    "prepack": "npm run build:tui",
+    "install-tui": "sh scripts/install-tui.sh"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
@@ -31,8 +33,8 @@
     "electron": "^44.8.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0",
+    "ink-testing-library": "^4.0.0",
     "playwright": "^1.64.1",
-    "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
@@ -47,7 +49,8 @@
     "gsap": "^3.14.2",
     "ink": "^8.0.0",
     "jpeg-js": "^0.4.4",
-    "smol-toml": "^1.9.1"
+    "smol-toml": "^1.9.1",
+    "react": "^19.3.1"
   },
   "build": {
     "appId": "dev.tucano.app",
@@ -140,5 +143,12 @@
         "to": "icon.png"
       }
     ]
-  }
+  },
+  "files": [
+    "bin/",
+    "out/",
+    "docs/spec-tuicano.md",
+    "README.md",
+    "LICENSE"
+  ]
 }

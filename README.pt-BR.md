@@ -1,3 +1,8 @@
+> **Nota deste fork.** Este é o README do upstream (Tucano, o app Electron). Este fork mantém
+> **TUIcano**, o cliente de terminal, e **não mantém a interface Electron**: leia o
+> [README em inglês](README.md) e o [contrato de paridade](docs/spec-tuicano.md). O texto abaixo
+> descreve o app do upstream, que continua nesta árvore só como referência da paridade.
+
 <div align="center">
 
 <img src="build/icon.png" width="112" alt="Tucano">

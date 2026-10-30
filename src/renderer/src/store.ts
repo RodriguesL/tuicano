@@ -111,6 +111,7 @@ export const {
   runRoutine,
   dmWith,
   lendFolder,
+  lendFolderPath,
   folderAction
 } = store
 

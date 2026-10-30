@@ -120,16 +120,22 @@ once.
 
 ```
 src/tuicano/
-  index.tsx       argv, the four modes, --graphics, the socket client, Ink
-  app.tsx         the Ink root: layout, focus, keymap, screen registry
+  index.tsx       argv, the four modes, --graphics, --data, --theme, the socket client, Ink
+  app.tsx         the Ink root: layout, focus, global keys, composer, status line, help, the overlay host
   client.ts       the terminal's AppClient: a ClientPort over the socket + host hooks
   approvals.ts    the gate: what a keypress means on an approval (tested on its own)
-  lock.ts         one client per data folder (the single-instance lock's equivalent)
+  useApprovals.tsx the gate wired to the store and the overlay host, shared by both places that decide
+  lock.ts         the daemon's one-core-per-folder lock
   keys.ts         the keymap in one table (the help screen reads from it)
   sidebar.ts      the sidebar's rows, built from the shared state
-  runtime.ts      what the client learned before drawing: data dir, protocol, cell
-  screens/        Sidebar, Conversation, Approvals, Placeholder (one per View)
-  overlays/       dialogs (members, name, topic, archived, new channel, search) and panels
+  config.ts       the client's own config (theme, graphics) next to the data folder
+  paths.ts        where the data lives: the platform's app-data folder, --data, TUCANO_DATA
+  runtime.ts      what the client learned before drawing: data dir, protocol, cell, theme
+  screens/        one per View: Sidebar, Conversation, Approvals, Agent, Tuca, Connectors,
+                  Memory, Routines, Skills, Report, Usage, Settings, Onboarding, Banner, Placeholder
+  overlays/       api (the overlay contract), host (the frame), Panels, Dialogs, ThemePicker
+  theme/          types, index (the glob registry), context (useTheme), palettes/*.ts (18 looks)
+  ui/             the kit every screen shares: kit.tsx, form.tsx, input.ts
   graphics/       detect, cell, fit, kitty, iterm2, sixel, raster/, transport, probe, viewer
 ```
 
@@ -262,6 +268,70 @@ The honest list, with the substitution and the reason. Nothing here is "TBD": th
 | Screenshot of the agent's Linux computer (Electron's Chromium) | Refuses with a clear message; the agent's browser still works when Chrome is installed (CDP, already pure Node) | There is no bundled Chromium in a Node process |
 | Splash animation (GSAP, SVG) | A one-line banner | A terminal does not animate |
 | OS keychain | `plainCipher` in the Node host, named in the code and here | `safeStorage` is an Electron API (`src/main/index.ts` handles each OS keyring) |
+
+### 2.6 What the terminal cannot do, in one line
+
+The table above is the whole of it: no PDF reader, no tray, no auto-update UI, no OS keychain, no
+animated splash, no bundled Chromium for a computer's screenshot, no audio of its own, no native
+folder picker. Everything else here is a plan to do the window's job with a keyboard.
+
+### 2.7 Looks: themes, as data
+
+A terminal client that is only readable is not done. `src/tuicano/theme/` holds a `Theme` of
+**semantic** tokens — `text`, `dim`, `faint`, `accent`, `borderFocus`, `working`, `danger`, `done`,
+`bar`, one colour per `AgentColor` — and eighteen palettes:
+
+| Family | Palettes |
+|---|---|
+| Catppuccin | `latte`, `frappe`, `macchiato`, `mocha` |
+| Kanagawa | `wave`, `dragon`, `lotus` |
+| Editors | `dracula`, `darcula`, `one-dark`, `nord`, `tokyo-night` |
+| Classic | `gruvbox-dark-hard`, `gruvbox-light`, `rose-pine`, `rose-pine-moon`, `solarized-dark`, `solarized-light`, `everforest-dark` |
+
+Three rules keep it cheap:
+
+1. **A palette is one file.** The registry finds them with a glob, so adding a theme is adding
+   `theme/palettes/name.ts` — nothing to register, and two people adding themes cannot collide on an
+   index.
+2. **A screen never names a colour**; it asks the theme for `danger`. That is what makes eighteen
+   looks possible without eighteen code paths, and it is a review rule: a hex outside
+   `theme/palettes/` is a bug.
+3. **The choice belongs to the client.** `--theme <name>`, or `Ctrl+T` for a picker with a live
+   swatch of every candidate, kept in `<dataDir>/tuicano.config.json` — deliberately not in the
+   app's database, because the window has its own `system | light | dark` idea and neither renderer
+   should write the other's preferences into a shared row.
+
+`accent` stays a warm orange in every palette: that is what keeps a themed TUIcano looking like
+Tucano. Where a published palette has no colour for a slot (Rosé Pine has no green, One Dark has a
+single cyan), the palette derives one and says so in its header and its `origin`. An honest
+approximation beats a silent invention.
+
+### 2.8 The screen contract: twelve screens, one shape
+
+With twelve views, the risk is twelve ideas of what a list looks like. Two frozen pieces answer it:
+
+- **`src/tuicano/ui/kit.tsx`** — `List`+`Row`, `Field`, `Segmented`, `Bar`, `Table`, `Spinner`,
+  `Hint`, `Panel`. A screen that needs a tenth primitive adds it there, where the other eleven can
+  see it, rather than inventing one on the side.
+- **`src/tuicano/ui/form.tsx`** — one form engine (`text`, `lines`, `select`, `toggle`, `action`
+  fields) owning editing, focus, Enter, `Ctrl+S` and `Esc`, so twenty forms cannot disagree about
+  whether the arrows change a value. The editable core under it (`ui/input.ts`: insert, backspace,
+  kill-word, window around the caret) is pure and unit-tested, because a caret bug is not something
+  to find by typing.
+
+A screen is then a small thing:
+
+```tsx
+export function Routines({ state, active }: ScreenProps): ReactNode
+```
+
+It owns its cursor (`useState`) and its keys (`useInput(handler, { isActive: active })`), asks for
+modals through `useOverlay()` (`prompt`, `confirm`, `sheet`, `dialog`, `panel`, `themes`, `note`),
+and never draws global chrome: the composer, the status line and the key help belong to the root.
+The layers are quiet by construction — the root is inactive while an overlay is up, an overlay is
+gone while an image is drawn — so a keypress has exactly one owner at a time. That is what keeps a
+screen at ~180 lines, and what makes every screen testable without a terminal
+(`test/helpers/screen.tsx` renders one with `ink-testing-library` and presses keys at it).
 
 ## 3. The parity contract
 
@@ -515,6 +585,12 @@ worth attacking, so:
   were loosened (a umask surprise, a shared `/tmp`). Node exposes no peer-credential call for Unix
   sockets, so a same-user check is not something to add; an attacker who is already that user can do
   everything the client can anyway.
+- **One rule for secrets, across both hosts**: a secret is sealed by the host that wrote it, and a
+  host never reads one it did not seal. The app seals with the OS keychain; the Node host seals with
+  `plainCipher` and *refuses* anything else, loudly, naming the folder — because the alternative is
+  reading a keychain blob as if it were a password. That is what keeps "the same database" from
+  meaning two keychains. When the app ends up attaching to a daemon, the app stays the one that
+  seals; the daemon never has to read a raw secret.
 
 ### 4.5 Who owns the daemon
 
@@ -563,10 +639,35 @@ Requirements of the renderer boundary, from being a guest in someone's multiplex
   escape sequence or a text fallback out. A multiplexer that strips images costs a flag, not a
   rewrite.
 
+### 4.7 The data folder, and who may start a core
+
+`--data <dir>`, else `TUCANO_DATA`, else the platform's application-data directory plus the app's
+name (`~/Library/Application Support/Tucano`, `~/.config/Tucano`, `%APPDATA%\Tucano`) — the same
+folder the installed app uses, resolved in `src/tuicano/paths.ts` without a dependency. A terminal
+and a window on one machine are then one team by default, which is the whole point.
+
+The caveat worth knowing: run from the code, the app deliberately uses `Tucano Dev` instead
+(`src/main/index.ts`), so a development window and a terminal are two folders until one is pointed
+at the other. Printing the resolved folder is part of `--graphics-info` and of the daemon's first
+line for exactly that reason.
+
+Two rules follow from this being a *file*, not a setting:
+
+- **One core per data folder.** The daemon takes `<dataDir>/tuicano.lock` (holding its pid) before
+  it touches SQLite, the webhook listener or the routines; clients never take it. A stale lock is
+  recognised by its dead pid. This is why several panes and a keybind can share one team instead of
+  racing it — and it is keyed to the *resolved* folder, so `--data` gets its own core.
+- **A read-only one-shot never starts a core.** `tuicano approvals`, `tuicano cli <method>` and
+  friends attach, and with nothing listening they exit with one line saying what to run. A keybind
+  fired from an arbitrary directory must not quietly grow a second team — that is not hypothetical,
+  it is how this rule came to exist. Mutating one-shots may start one (`send` does), and `--start`
+  lets anything opt in; `--no-spawn` refuses.
+
 ## 5. Phases
 
-Each phase is a set of rows in [§3](#3-the-parity-contract) that become reachable. Only **P0** is in
-this branch.
+Each phase is a set of rows in [§3](#3-the-parity-contract) that become reachable. This branch
+carries P0, the theme system, the screen contract, and is landing P1–P5 screen by screen; P6 and P7
+are written down and not built.
 
 - **P0 — the abstraction and the critical path (this branch).** `src/host` (Electron + Node),
   `src/app` (reduce, selectors, actions) with the GUI intact, and the TUIcano skeleton: it launches,
@@ -613,6 +714,30 @@ this branch.
     daemon and never spawns or supervises it ([§4.5](#45-who-owns-the-daemon)).
   - Nothing of this phase exists yet. It is written down because the seam it needs — a daemon on a
     local socket, with one-shot commands for the gate — is the seam P0 built.
+- **P7 — removing Electron (planned, gated on parity, and on three replacements).** Only worth
+  doing once the matrix is green with the window still there: parity is measured *against* the
+  reference implementation, and deleting the reference before it is met means nobody can tell what
+  "the same" meant. What goes with it: `src/main` (window, tray, menu, auto-update, the `tucano://`
+  artifact protocol, single-instance lock), `src/preload`, the 16 React components (~8.3k lines) and
+  the 115 KB stylesheet, `src/host/electron.ts`, `src/renderer`, and the dependencies that exist
+  only for them (`electron`, `electron-builder`, `electron-updater`, `react-dom`, `gsap`). What gets
+  simpler, concretely: one renderer instead of two, one transport instead of two, one host
+  implementation instead of two, and — the one that pays for itself — **one cipher instead of two**,
+  because a daemon-only world can have a keyring-backed cipher (`secret-tool`, the `security` CLI,
+  or `keytar`) without anyone having to interoperate with `safeStorage`.
+  What must be replaced or consciously accepted before the deletion:
+  1. **The keychain.** Nothing else in the app is a security regression, and this one is: the
+     replacement is a keyring-backed `Cipher` in the Node host, or secrets that stay `plainCipher`.
+  2. **Computer screenshots.** The agent's `screenshot` tool today uses a hidden Chromium window
+     (`src/main/index.ts`). The replacement is the same Chrome/CDP path the browser already uses —
+     which means Chrome becomes a hard requirement for that one tool, and its absence is a clear
+     message.
+  3. **Notifications, folder picking, tray, auto-update, the splash.** Notifications are already
+     OSC 9 plus the core's Telegram path; the folder picker is already a typed path; tray,
+     auto-update and the splash are out of scope for a terminal by design ([§2.5](#25-what-the-terminal-genuinely-cannot-do)).
+  Decision record: this is the user's call to make, and it is not a simplification until the three
+  above are settled — the honest summary is that it saves a lot of *code to maintain* and one
+  security caveat, and costs one bundled Chromium and one update mechanism.
 
 ## 6. Risks and open questions
 

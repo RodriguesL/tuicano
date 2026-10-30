@@ -21,18 +21,27 @@ import { prepare, protocolLabel } from './graphics/transport'
 import { probeCell } from './graphics/probe'
 import { samplePng } from './graphics/sample'
 import { acquireLock } from './lock'
+import { hasTheme } from './theme'
+import { readConfig } from './config'
+import { resolveDataDir } from './paths'
 import { runtime } from './runtime'
 import { attachPort } from './client'
 import { TuiApp } from './app'
 
 const USAGE = `usage:
-  tuicano                       the terminal client (starts a daemon if none is up)
+  tuicano [tui]                 the terminal client (starts a daemon if none is up)
   tuicano daemon                the core as its own process: lock, socket, no UI
-  tuicano send <text>           send a message: --to <conversation-id|#channel>, --json
-  tuicano approvals [--json]    the approvals waiting for a decision
+  tuicano send <text>           send a message, starting a daemon if needed (--json)
+  tuicano approvals [--json]    the approvals waiting for a decision (attach only)
   tuicano approvals approve|refuse|always <id> [reason]
-  tuicano cli <method> [json]   any of the core's methods, one shot (keybinds, hooks)
-  tuicano --version | --graphics-info [--graphics=auto|kitty|iterm2|sixel|none] [--no-spawn]`
+  tuicano cli <method> [json]   any of the core's methods, one shot (attach only)
+  tuicano --version | --graphics-info [--graphics=auto|kitty|iterm2|sixel|none]
+
+  --data <dir>   the data folder (default: the app's own, see docs/spec-tuicano.md §4.7)
+  --theme <name> a theme (Ctrl+T in the client lists them all)
+  --start        let a one-shot start a daemon when nothing is listening
+  --no-spawn     never start a daemon; say what to run instead
+  --to <id|#channel>   which conversation send talks to`
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
@@ -70,11 +79,13 @@ const graphicsInfo = (override: string | undefined): void => {
       `terminal: TERM=${process.env['TERM'] ?? ''} TERM_PROGRAM=${process.env['TERM_PROGRAM'] ?? ''} tty=${process.stdout.isTTY === true}`,
       `grid: ${grid}`,
       `picture: 32x32 png -> ${placement}`,
+      `data: ${runtime.dataDir}`,
       ''
     ].join('\n')
   )
   // The image goes to stdout: `tuicano --graphics-info > frame.bin` leaves exactly
-  // the escape sequence a terminal would have received.
+  // the escape sequence a terminal would have received. This mode never blocks —
+  // it reports and returns, and the probe above has already given the tty back.
   if (drawn) process.stdout.write(`${drawn.text}\n`)
   else process.stdout.write(`${picture.fallback()}\n`)
 }
@@ -84,6 +95,11 @@ const graphicsInfo = (override: string | undefined): void => {
 async function runDaemon(dataDir: string): Promise<void> {
   mkdirSync(dataDir, { recursive: true })
   acquireLock(dataDir)
+  // A clean start, like the app's: the sample team is a test affordance of the fake
+  // engines (the core seeds when TUCANO_FAKE_ENGINES=1 and TUCANO_SEED is not '0'),
+  // and a client must not greet a person with somebody else's channels. Ask for it
+  // on purpose with TUCANO_SEED=1.
+  if (process.env['TUCANO_SEED'] === undefined) process.env['TUCANO_SEED'] = '0'
   // stdout stays clean (spec §3): anything the core logs goes to stderr.
   console.log = (...a: unknown[]): void => console.error(...a)
   console.info = console.log
@@ -113,16 +129,20 @@ async function runDaemon(dataDir: string): Promise<void> {
 
 // ---------- the clients ----------
 
-// A client never owns the lock: the daemon does. With no daemon, one is started
-// in the background (that is the pleasant default for a keybind), unless
-// --no-spawn says otherwise.
-async function openPort(dataDir: string, spawnIt: boolean): Promise<ClientPort> {
+// A client never owns the lock: the daemon does. A mutating one-shot may start
+// one when nothing is listening; a read-only one must not, or a keybind fired from
+// an arbitrary directory would quietly grow a second team (spec §4.7).
+async function openPort(dataDir: string, start: boolean): Promise<ClientPort> {
   try {
     return await connectClient(dataDir)
   } catch {
-    if (!spawnIt) throw new Error(`no daemon for ${dataDir}. Start one with: tuicano daemon`)
+    if (!start)
+      throw new Error(
+        `no daemon is listening on ${dataDir}. Start one with: tuicano daemon (or pass --start to let this command do it)\nNothing was changed.`
+      )
   }
-  const child = spawn(process.execPath, [process.argv[1]!, 'daemon'], { detached: true, stdio: 'ignore', env: process.env })
+  // The child gets the same folder this command resolved, flag and all.
+  const child = spawn(process.execPath, [process.argv[1]!, 'daemon'], { detached: true, stdio: 'ignore', env: { ...process.env, TUCANO_DATA: dataDir } })
   child.unref()
   for (let i = 0; i < 80; i++) {
     await delay(100) // the core opens SQLite and looks for the harnesses first
@@ -190,7 +210,9 @@ async function runSend(argv: string[]): Promise<void> {
 async function runApprovals(argv: string[]): Promise<void> {
   const [action, id, ...rest] = positional(argv, []).slice(1)
   const dataDir = runtime.dataDir
-  await withDaemon(dataDir, !argv.includes('--no-spawn'), async (port) => {
+  // Attach only, unless --start: listing or deciding an approval with no core
+  // running means something else is wrong, and starting one silently would hide it.
+  await withDaemon(dataDir, argv.includes('--start'), async (port) => {
     if (action === 'approve' || action === 'refuse' || action === 'always') {
       if (!id) throw new Error(`which approval?\n${USAGE}`)
       const decision = action === 'refuse' ? 'refused' : 'approved'
@@ -225,7 +247,7 @@ async function runCli(argv: string[]): Promise<void> {
   if (!method) throw new Error(`which method?\n${USAGE}`)
   const params = raw ? (JSON.parse(raw) as unknown) : undefined
   const dataDir = runtime.dataDir
-  await withDaemon(dataDir, !argv.includes('--no-spawn'), async (port) => {
+  await withDaemon(dataDir, argv.includes('--start'), async (port) => {
     const result = await ask(port, method as Method, params as never)
     process.stdout.write(`${JSON.stringify(result ?? null)}\n`)
   })
@@ -245,7 +267,13 @@ async function runTui(argv: string[]): Promise<void> {
   // from the tty, not it from Ink's CI heuristic, so a pane behaves predictably;
   // the kitty keyboard protocol is left off because the multiplexer owns those
   // keys (spec §3).
-  render(<TuiApp />, { alternateScreen: process.stdout.isTTY === true, interactive: process.stdout.isTTY === true })
+  // The alternate screen keeps the pane's scrollback intact. `interactive` comes
+  // from the tty, not from Ink's CI heuristic, so a pane behaves predictably; the
+  // kitty keyboard protocol is left off because the multiplexer owns those keys.
+  // Full frames rather than diffs: a pane that resyncs, a scrollback read or a
+  // screenshot then always has the whole picture, and it is what lets the screen
+  // tour assert a frame per key (spec §5).
+  render(<TuiApp />, { alternateScreen: process.stdout.isTTY === true, interactive: process.stdout.isTTY === true, incrementalRendering: false })
 }
 
 async function main(): Promise<void> {
@@ -259,16 +287,22 @@ async function main(): Promise<void> {
 
   // The command is the first word that is not a flag: `--no-spawn cli snapshot`
   // and `cli snapshot --no-spawn` mean the same thing.
-  const [mode] = positional(argv, ['--graphics', '--to'])
+  const [mode] = positional(argv, ['--graphics', '--to', '--data', '--theme'])
   const info = argv.includes('--graphics-info')
   const draws = mode === 'tui' || mode === undefined
+  runtime.dataDir = resolveDataDir(argv)
+  // The client's own settings (spec §2.7): a flag beats the config file, and an
+  // unknown theme name falls back to the default with a word about it.
+  const cfg = readConfig(runtime.dataDir)
+  const wanted = flag(argv, '--theme') ?? cfg.theme
+  if (wanted && !hasTheme(wanted)) process.stderr.write(`tuicano: no theme named ${wanted}; using the default (Ctrl+T lists them)\n`)
+  runtime.theme = wanted && hasTheme(wanted) ? wanted : undefined
   // Only the modes that draw ask the terminal how big a cell is: a one-shot command
   // must not write escape sequences into someone's pane (spec §3).
   if (draws || info) {
-    runtime.protocol = detectProtocol({ override: override ?? 'auto', env: process.env })
+    runtime.protocol = detectProtocol({ override: override ?? cfg.graphics ?? 'auto', env: process.env })
     runtime.cell = await probeCell({ input: process.stdin, output: process.stdout })
   }
-  runtime.dataDir = process.env['TUCANO_DATA'] ?? join(process.cwd(), '.tucano')
 
   if (info) return graphicsInfo(override)
 

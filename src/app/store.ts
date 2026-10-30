@@ -429,6 +429,17 @@ export function createStore(client: AppClient) {
   // The id of the DM with an agent, created if it doesn't exist yet, without opening it.
   const dmWith = (agentId: string): Promise<string> => client.call('openDm', { agentId })
 
+  // A renderer with no folder picker (TUIcano) lends a path it was given: the core
+  // validates it exactly as it does a picked one, and answers with why not.
+  async function lendFolderPath(agentId: string, path: string): Promise<string | null> {
+    try {
+      await client.call('lendFolder', { agentId, path })
+      return null
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e)
+    }
+  }
+
   // Opens the host's folder picker; resolves with why it couldn't be lent, if so.
   async function lendFolder(agentId: string): Promise<string | null> {
     const path = (await client.pickFolder?.()) ?? null
@@ -558,6 +569,7 @@ export function createStore(client: AppClient) {
     runRoutine,
     dmWith,
     lendFolder,
+    lendFolderPath,
     folderAction
   }
 }
