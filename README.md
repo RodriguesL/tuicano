@@ -79,7 +79,8 @@ It also means agents run on a machine with no graphical session at all.
 | [Pi](https://pi.dev) | `npm install -g @earendil-works/pi-coding-agent` | `pi` |
 
 An agent runs on one of these, the way you set it up: on your plan, on your company's gateway, or on
-the providers you have logins for.
+the providers you have logins for. **Tuca** — the agent that builds your other agents — prefers **Pi**
+when your machine has it, and falls back to the plan models when it doesn't.
 
 ## Install
 

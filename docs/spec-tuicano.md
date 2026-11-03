@@ -409,7 +409,7 @@ and what TUIcano does with it.
 | 12 | `setChannelMembers` | members dialog | `m` on the channel → overlay, space toggles | P5 |
 | 13 | `deleteConversation` | menu, Delete | `d` on the channel/DM → confirmation | P5 |
 | 14 | `openDm` | click the agent / an `@handle` | `Enter` on the agent (or `@handle` autocomplete in the composer) | P0 |
-| 15 | `ensureTuca` | the Tuca screen | `T` → the same builder screen | P1 |
+| 15 | `ensureTuca` | the Tuca screen | `T` → the same builder screen. The model he is made with is chosen by `preferredTucaModel`: **Pi first** when this machine has it and lists models (this fork's preference), then the app's own order — what was asked for, the plan's usual two, the router's, the memory's, whatever else is ready | P1 |
 | 16 | `createFromDraft` | Create on the Tuca card | `c` on the card | P1 |
 | 17 | `settleDraft` | Dismiss / after creating | `d` on the card, and automatic after creating | P1 |
 | 18 | `updateSettings` | each Settings field | the same, field by field, no Save button | P3 |
@@ -520,7 +520,7 @@ Literal count of `src/renderer/src/components/*.tsx`: **16**.
 | # | Component | What it is | In TUIcano | Phase |
 |---|---|---|---|---|
 | 1 | `Conversation.tsx` | conversation, messages, steps, receipt, approval card | `screens/Conversation.tsx` (one screen, not two: the card lives in it) — the receipt sheet lists every turn of a reply, and a reply's artifacts and memory lines are addressed by a sub-cursor (`←/→`) | P0 |
-| 2 | `Sidebar.tsx` | channels, DMs, agents, navigation, unread | `screens/Sidebar.tsx` (same state, keys instead of clicks) | P0 |
+| 2 | `Sidebar.tsx` | channels, DMs, agents, navigation, unread | `screens/Sidebar.tsx` (same state, keys instead of clicks); its channels are numbered as the app's `1-9` jumps to them | P0 |
 | 3 | `Pages.tsx` | `AgentPage`, `ApprovalsPage`, `ConnectorsPage`, `SettingsPage` | four screens under `screens/` | P0 (Approvals) / P2 / P3 |
 | 4 | `Panel.tsx` | side panel, artifact and service cards, browser | `overlays/Panel.tsx` + the graphics viewer | P1 / P4 |
 | 5 | `Dialogs.tsx` | members, name, topic, archived, new channel, search | `overlays/Dialogs.tsx` (same `Dialog` values) | P5 |

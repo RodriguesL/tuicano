@@ -79,12 +79,18 @@ export function mount(node: (overlay: OverlayApi) => ReactNode, opts?: { theme?:
   setLang('en')
   const overlay = overlaySpy()
   const theme = findTheme(opts?.theme)
-  const mounted = render(
+  // ink-testing-library's types declare one argument; the second is forwarded to Ink's
+  // render at runtime, which is the only way to ask for whole frames here.
+  const renderWith = render as unknown as (tree: ReactNode, options?: Record<string, unknown>) => ReturnType<typeof render>
+  const mounted = renderWith(
     <ThemeProvider theme={theme}>
       <OverlayContext.Provider value={overlay}>{node(overlay)}</OverlayContext.Provider>
     </ThemeProvider>,
-    // The same rendering the client asks Ink for: whole frames, not diffs, so a frame
-    // read after a keypress is the screen and not a patch of it.
+    // Whole frames, like the client asks Ink for. Without this Ink writes diffs and a
+    // frame read after a keypress is a *patch* of the screen, interleaved with what was
+    // there before — which made assertions fail (or pass) for the wrong reason. The
+    // option is real at runtime; ink-testing-library's own types do not declare it.
+    { incrementalRendering: false } as never
   )
   // `<Static>` (the banner) writes its own chunk above the frame, so the *last* write
   // is not always the live frame. What was drawn since the keypress is.
@@ -96,10 +102,19 @@ export function mount(node: (overlay: OverlayApi) => ReactNode, opts?: { theme?:
     await new Promise((r) => setTimeout(r, 60))
   }
   return {
-    // Ink writes the `<Static>` chunk (the banner) and the live frame in whatever
-    // order the commit produces, so the answer is "everything since the keypress, plus
-    // the newest frame" rather than whichever write happened to be last.
-    frame: () => `${mounted.frames.slice(since).join('\n')}\n${mounted.lastFrame() ?? ''}`,
+    // The newest frame that is a whole screen. Joining frames does not work: each one may
+    // reposition the cursor, so concatenating them interleaves the text — which is how a
+    // passing assertion turned into a garbled one. The theme name appears only in the
+    // status line (and in the theme picker, which is a whole screen of its own), so it is
+    // what tells a whole frame from the `<Static>` banner chunk.
+    frame: () => {
+      const all = mounted.frames
+      for (let i = all.length - 1; i >= Math.max(0, since); i--) {
+        const f = all[i]
+        if (f && f.includes(theme.name)) return f
+      }
+      return mounted.lastFrame() ?? ''
+    },
     first: () => mounted.frames[0] ?? '',
     press: async (...keys) => {
       since = mounted.frames.length

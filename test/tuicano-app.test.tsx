@@ -3,7 +3,7 @@
 // own `a`/`n`/`i` did two things at once, and Ctrl+T (a raw control character in a
 // real terminal) never reached its binding at all.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { KEY, mount } from './helpers/screen'
+import { KEY, channel, mount } from './helpers/screen'
 import { TuiApp } from '../src/tuicano/app'
 import { store } from '../src/tuicano/store'
 import { client } from '../src/tuicano/client'
@@ -61,11 +61,55 @@ describe('the router', () => {
   })
 
   it('opens the help on ? and closes it on any key', async () => {
+    // Structural markers, not copy: the help is the host's round-bordered panel and the
+    // screen behind it (memory) draws none, so the border is what tells it is up. Copy
+    // would tie this to the language the test happens to run in.
     const m = mount(() => <TuiApp />)
     await m.press('?')
-    expect(m.frame()).toContain('keys')
+    expect(m.frame()).toContain('╭')
     await m.press('x')
-    expect(m.frame()).not.toContain('swap focus')
+    expect(m.frame()).not.toContain('╭')
+    await m.unmount()
+  })
+
+  it('lets you write from the pane, not only from the sidebar', async () => {
+    store.navigate({ kind: 'conversation', id: 'c1' })
+    const m = mount(() => <TuiApp />)
+    await m.press(KEY.tab) // the pane has the cursor: the conversation is where you read
+    await m.press('i')
+    await m.type('hello')
+    expect(m.frame()).toContain('> hello')
+    await m.unmount()
+  })
+
+  it('has one key that goes back a screen, from anywhere', async () => {
+    store.navigate({ kind: 'conversation', id: 'c1' })
+    const m = mount(() => <TuiApp />)
+    await m.press('u') // usage, from the conversation
+    expect(store.getState().view).toEqual({ kind: 'usage' })
+    await m.press(KEY.backspace)
+    expect(store.getState().view).toEqual({ kind: 'conversation', id: 'c1' })
+    await m.unmount()
+  })
+
+  it('opens search from the pane too', async () => {
+    const m = mount(() => <TuiApp />)
+    await m.press(KEY.tab)
+    await m.press('/')
+    expect(m.frame()).toContain('╔')
+    await m.unmount()
+  })
+
+  it('numbers the channels the way 1-9 jumps to them', async () => {
+    // Two channels whose insertion order is not their name order: the sidebar sorts by
+    // name, so the key has to jump by the same order or the number lies.
+    store.dispatch({ type: 'conversation', conversation: channel({ id: 'zebra', name: 'zebra' }) })
+    store.dispatch({ type: 'conversation', conversation: channel({ id: 'alfa', name: 'alfa' }) })
+    const m = mount(() => <TuiApp />)
+    await m.press('1')
+    expect(store.getState().view).toEqual({ kind: 'conversation', id: 'alfa' })
+    await m.press('2')
+    expect(store.getState().view).toEqual({ kind: 'conversation', id: 'zebra' })
     await m.unmount()
   })
 })

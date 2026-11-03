@@ -76,6 +76,26 @@ export function availableModels(s: Pick<Settings, 'engines'>, listed: Partial<Re
   return [...plan, ...own]
 }
 
+// Which model the Tuca runs on. This fork's preference comes first: Pi, when this machine
+// has it and lists models, because that is what the person asked their builder to use
+// (docs/spec-tuicano.md §3.1 #15). Everything after it is the app's own order — the
+// model asked for, then the plan's usual two, then the router's and the memory's, then
+// whatever else is ready — so a machine without Pi behaves exactly as before, and one
+// with Pi keeps working when Pi goes away.
+export function preferredTucaModel(
+  s: Pick<Settings, 'engines' | 'routerModel' | 'memoryModel'>,
+  listed: Partial<Record<string, string[]>> = {},
+  asked?: string
+): string | undefined {
+  const models = availableModels(s, listed)
+  const works = (id: string): boolean => {
+    const m = modelInfo(id)
+    return !!m?.id && id !== 'jev' && s.engines[m.engine].loggedIn
+  }
+  const pi = models.find((m) => m.id.startsWith('pi:'))?.id
+  return [asked, pi, 'sonnet', 'gpt-5.6-luna', s.routerModel, s.memoryModel, models[0]?.id].find((id): id is string => !!id && works(id))
+}
+
 // What the Tuca sees of the workspace in his prompt.
 export function builderSection(s: Pick<Settings, 'engines'>, ctx: { models: { id: string; label: string }[]; connectors: Connector[]; team: Agent[]; own: string }): string {
   const gateway = (Object.keys(s.engines) as (keyof Settings['engines'])[]).filter((e) => s.engines[e].loggedIn && s.engines[e].route === 'gateway')

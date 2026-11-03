@@ -73,6 +73,10 @@ TOUR_SEEDED = [
     ('the theme picker, on Ctrl+T', ['\x14'], '╔'),
     ('the theme picker closes on Esc', ['\x1b'], '? help', '╔'),
     ('talk to a channel, on 1', ['1'], '· conversation ·'),
+    # One key goes back a screen, from anywhere: the friction this replaced was that
+    # only some screens had any way out at all.
+    ('a screen, on u', ['u'], '· usage ·'),
+    ('and back, on Backspace', ['\x7f'], '· conversation ·'),
     ('write and send, on i', ['i'], ''),
     ('the message in the composer', ['ola do tour'], '> ola do tour'),
     ('send it, on Enter', ['\r'], 'ola do tour', 2.0, '> ola do tour'),

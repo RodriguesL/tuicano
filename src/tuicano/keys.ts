@@ -6,10 +6,11 @@ export interface KeyHelp {
 }
 
 export const GLOBAL_KEYS: KeyHelp[] = [
-  { keys: 'Tab', what: 'swap focus between the sidebar and the screen' },
+  { keys: 'Tab', what: 'move between the sidebar and the screen (Shift+Tab goes back)' },
+  { keys: '⌫ Backspace', what: 'back to the screen you came from' },
   { keys: '1-9', what: 'go to channel 1 to 9 (as Cmd-1-9 in the app)' },
   { keys: 'a', what: 'approvals' },
-  { keys: 'i', what: 'write a message (in a conversation)' },
+  { keys: 'i', what: 'write a message (from either pane, in a conversation)' },
   { keys: 'n', what: 'new channel (as Cmd-N)' },
   { keys: '/', what: 'search (as Cmd-K)' },
   { keys: ',', what: 'settings (as Cmd-,)' },

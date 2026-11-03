@@ -42,7 +42,7 @@ import { loginEnv } from './mac'
 import { findLocalSkills } from './local-skills'
 import { Routines } from './routines'
 import { Runner } from './runs'
-import { agentFromDraft, availableModels, tucaAgent, tucaHello } from './tuca'
+import { agentFromDraft, availableModels, preferredTucaModel, tucaAgent, tucaHello } from './tuca'
 import { seed } from './seed'
 
 const dataDir = process.env['TUCANO_DATA'] ?? join(process.cwd(), '.tucano')
@@ -387,7 +387,7 @@ function ensureTuca(modelId?: string, fresh = false): { agentId: string; convers
     emit({ type: 'agent', agent: tuca })
   }
   if (!tuca) {
-    const model = [modelId, 'sonnet', 'gpt-5.6-luna', s.routerModel, s.memoryModel, availableModels(s, listed)[0]?.id].find((id): id is string => !!id && id !== 'jev' && works(id))
+    const model = preferredTucaModel(s, listed, modelId)
     tuca = tucaAgent(model ?? 'sonnet', db.agents().map((a) => a.handle), s.defaultLimit)
     db.saveAgent(tuca)
     emit({ type: 'agent', agent: tuca })

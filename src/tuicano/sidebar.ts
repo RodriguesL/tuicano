@@ -35,12 +35,16 @@ export function sidebarRows(s: State): Row[] {
   rows.push({ key: 'nav:new-agent', label: L('Novo agente', 'New agent'), hint: 'g · blank', view: { kind: 'new-agent' } as View })
   rows.push({ key: 'nav:tuca', label: L('Tuca', 'Tuca'), hint: 't · builds agents', view: { kind: 'tuca' } as View })
   rows.push({ key: 'head:channels', label: L('Canais', 'Channels'), heading: true })
+  // Channels are numbered as the app's `1-9` jumps to them (channelList sorts by
+  // name), so the key and the number a person sees agree.
+  const channels = channelList(s).filter((c) => c.kind === 'channel')
   for (const c of channelList(s)) {
     const dm = c.kind === 'dm'
+    const n = channels.indexOf(c) + 1
     rows.push({
       key: `conv:${c.id}`,
       label: dm ? conversationTitle(s, c) : `#${c.name}`,
-      hint: dm ? 'dm' : c.topic ? c.topic.slice(0, 24) : undefined,
+      hint: dm ? 'dm' : n <= 9 ? `${n}` : undefined,
       badge: c.unread || undefined,
       view: { kind: 'conversation', id: c.id }
     })

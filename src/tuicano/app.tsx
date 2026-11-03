@@ -13,7 +13,7 @@ import { runtime } from './runtime'
 import { findTheme } from './theme'
 import type { View } from '../app/store'
 import { ThemeProvider } from './theme/context'
-import { useAppState, store, unreadTotal } from './store'
+import { channelList, useAppState, store, unreadTotal } from './store'
 import { protocolLabel } from './graphics/transport'
 import { ctrlKey } from './ui/input'
 import { ImageOverlay } from './graphics/viewer'
@@ -66,6 +66,10 @@ export function TuiApp(): ReactNode {
   const [image, setImage] = useState<ReactNode | null>(null)
   const [focus, setFocus] = useState<'sidebar' | 'pane'>('sidebar')
   const [composer, setComposer] = useState<string | null>(null)
+  // Where you were, so there is always a way back: every screen can be reached from
+  // several places (a channel from the sidebar or from a search hit, an agent's page
+  // from its DM or from the sidebar), and only some of them used to have a way out.
+  const [history, setHistory] = useState<View[]>([])
 
   const view = state.view ?? { kind: 'new-agent' as const }
   const conversation = view.kind === 'conversation' ? view.id : undefined
@@ -81,6 +85,34 @@ export function TuiApp(): ReactNode {
   useEffect(() => {
     if (runtime.popup && popupStart.current !== undefined && pendingNow < popupStart.current) exit()
   }, [pendingNow, exit])
+
+  // The history is kept by watching the view itself rather than by wrapping navigate:
+  // every source of a move (a screen, the sidebar, a search hit, the core removing a
+  // conversation) goes through the same state change.
+  const viewKey = JSON.stringify(state.view ?? null)
+  const lastView = useRef<View | null>(null)
+  const goingBack = useRef(false)
+  useEffect(() => {
+    const now = (state.view ?? null) as View | null
+    if (lastView.current === null) return void (lastView.current = now)
+    if (JSON.stringify(lastView.current) === viewKey) return
+    if (goingBack.current) {
+      goingBack.current = false
+      return void (lastView.current = now)
+    }
+    const from = lastView.current
+    lastView.current = now
+    if (from) setHistory((h) => [...h.slice(-20), from])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewKey])
+
+  const back = (): void => {
+    const previous = history[history.length - 1]
+    if (!previous) return
+    goingBack.current = true
+    setHistory((h) => h.slice(0, -1))
+    store.navigate(previous)
+  }
 
   // A note is what just happened: it says its line and goes away.
   useEffect(() => {
@@ -146,24 +178,32 @@ export function TuiApp(): ReactNode {
       if (input === 'q') return exit()
       if (input === '?') return setHelp(true)
       if (ctrlKey(input, key, 't')) return api.themes()
+      // Back a screen, wherever the cursor is: no screen binds this one, and the
+      // composer (which does use it, to delete) has already returned above. Every
+      // screen is reachable from several places, so a way back cannot be each screen's
+      // own business — that is how half of them ended up with none.
+      if (key.backspace || input === '\u007f') return back()
+      // The app's own keys, from either pane. Closing the composer is not the only
+      // reason to type, and search and settings are not the sidebar's private keys.
+      if (input === 'i' && now.view.kind === 'conversation') return setComposer('')
+      if (input === '/') return api.dialog({ kind: 'search' })
+      if (input === ',') return store.navigate({ kind: 'settings' })
       // No global Esc: whichever layer is above owns it (an overlay closes, a screen
-      // goes back, the composer leaves). Two owners for one key is how a screen ends
-      // up doing two things at once.
-      // Plain letters belong to the pane that has the cursor: a screen's `a`, `n`
-      // or `i` is its own (add a memory, a new routine, bring a skill in), and the
-      // app's letters live in the sidebar, which is where the app's own things are.
+      // closes its own detail, the composer leaves).
+      // The rest of the plain letters belong to the pane that has the cursor: a
+      // screen's `a`, `n` or `i` is its own (add a memory, a new routine, bring a skill
+      // in), and the app's letters live in the sidebar.
       if (now.focus !== 'sidebar') return
       if (input === 'a') return store.navigate({ kind: 'approvals' })
       if (input === 'n') return api.dialog({ kind: 'new-channel' })
-      if (input === '/') return api.dialog({ kind: 'search' })
-      if (input === ',') return store.navigate({ kind: 'settings' })
       // One key per screen, the ones the sidebar prints beside each row: the hint a
       // person reads has to be a key that works.
       const jump = NAV_KEYS[input]
       if (jump) return store.navigate(jump)
-      if (input === 'i' && now.view.kind === 'conversation') return setComposer('')
       if (/^[1-9]$/.test(input)) {
-        const channels = now.focusables.conversations.filter((c) => c.kind === 'channel')
+        // The same order the sidebar numbers its channels with (channelList sorts them
+        // by name), so the key matches the number a person can see.
+        const channels = channelList(now.focusables).filter((c) => c.kind === 'channel')
         const target = channels[Number(input) - 1]
         if (target) store.navigate({ kind: 'conversation', id: target.id })
         return
@@ -179,7 +219,18 @@ export function TuiApp(): ReactNode {
     if (note) return note
     if (composer !== null) return `> ${composer}`
     const where = view.kind === 'conversation' ? L('conversa', 'conversation') : view.kind
-    return `${protocolLabel(runtime.protocol)} ${Math.round(runtime.cell.pxW)}x${Math.round(runtime.cell.pxH)}px · ${theme.name} · ${unreadTotal(state)} ${L('não lidas', 'unread')} · ${where} · ${focus} · ? ${L('ajuda', 'help')}`
+    return [
+      `${protocolLabel(runtime.protocol)} ${Math.round(runtime.cell.pxW)}x${Math.round(runtime.cell.pxH)}px`,
+      theme.name,
+      `${unreadTotal(state)} ${L('não lidas', 'unread')}`,
+      where,
+      focus,
+      // The way back is only worth a hint while there is somewhere to go back to.
+      history.length ? L('⌫ volta', '⌫ back') : '',
+      `? ${L('ajuda', 'help')}`
+    ]
+      .filter(Boolean)
+      .join(' · ')
   })()
 
   if (image) return <>{image}</>
