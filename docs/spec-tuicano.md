@@ -365,6 +365,24 @@ a one-shot resolved its data folder to the **platform app-data directory**, not 
 decision seen in the wild rather than in a test.
 
 
+### 2.10 Which surfaces are bilingual, and which are English
+
+Both languages belong to the product, and which side a surface falls on is decided by who reads it —
+not by convenience:
+
+| Surface | Language | Why |
+|---|---|---|
+| Everything drawn inside the client: screens, overlays, the **key help**, labels, the composer, the status line | **bilingual** (`L(pt, en)`, in the workspace's language) | a person reads them |
+| One-shot output: `tuicano send`, `approvals`, `cli`, the daemon's banner | English | a script, a keybind or a log reads it, and a machine has no language |
+| `--graphics-info` | English | diagnostics |
+| The installer's and the plugin bridge's messages, `install-tui.sh`, `bridge.mjs` stderr | English | a shell reads them; the bridge has a herdr pane's environment and no workspace setting |
+| herdr manifest titles and action descriptions | English | herdr renders them from the manifest, where there is no runtime to ask |
+
+The one asymmetry worth naming: the key help is drawn *by* the client *for* a person, so it is
+bilingual even though nothing in the window corresponds to it — there was no pair to copy, so the
+Portuguese was written for this client.
+
+
 ## 3. The parity contract
 
 Two renderers, one feature set. `Phase` says when each row lands; nothing may stay TBD, and what the
@@ -729,7 +747,12 @@ Each phase is a set of rows in [§3](#3-the-parity-contract), and this is where 
 | **P3** | done | settings (harnesses, models, tokens, team, backups, pause, quiet hours) and the first-run introduction |
 | **P4** | done, with the substitutions of [§2.5](#25-what-the-terminal-genuinely-cannot-do) | the agent's browser (live frames through the graphics path, take over/hide/clear) and its computer (state, actions, services, folders) |
 | **P5** | done | the six dialogs, search, the archived agents, the one-line banner in place of the splash, the key help — and the row-by-row audit this matrix is |
-| **P6** | written down, not built | the herdr plugin (below) |
+Phases are worked in the shared worktree by default, with one rule that is not negotiable: **no
+`git stash` in it**. A lane that needs a clean tree gets a scratch clone or a worktree of its own — a
+stash taken while another lane is writing ate a pop once and only a manual audit showed nothing was
+lost. Everything else about how a phase is worked (lanes, scopes, evidence) is in `CONTRIBUTING.md`.
+
+| **P6** | built, and verified in a real herdr session; the keybinds are the user's to paste | the herdr plugin (below) |
 | **P7** | written down, not built | removing Electron (below) |
 
 - **P0 — the abstraction and the critical path (this branch).** `src/host` (Electron + Node),
@@ -753,30 +776,52 @@ Each phase is a set of rows in [§3](#3-the-parity-contract), and this is where 
 - **P5 — dialogs and the matrix audit.** Members, name, topic, archived, new channel, search, the
   opening banner, the key help — plus a row-by-row pass over the matrix in real terminals (kitty,
   WezTerm, iTerm2, foot, xterm without graphics).
-- **P6 — the herdr plugin (planned, not built).** A `herdr-plugin.toml` manifest that makes TUIcano a
-  first-class citizen of a herdr workspace, driving the daemon rather than hosting it. Verified
-  against herdr 0.9.5's plugin primitives, so the shape is known and does not have to be rediscovered:
-  - Manifest: `id`, `name`, `version`, `min_herdr_version`, `description`, `platforms`, plus
-    `[[build]]`, `[[startup]]`, `[[actions]]` (`id`, `title`, `contexts` — `["global"]`, `["pane"]`,
-    `["workspace"]` — and a `command` argv array), `[[panes]]` (`id`, `title`, `placement` —
-    `overlay`, `popup`, `split`, `tab`, `zoomed` — `width`, `height`), `[[events]]` (`on` an event
-    name: `tab.closed`, `workspace.closed`, `pane.agent_detected`, `worktree.created`, …) and
-    `[[link_handlers]]` (a regex `pattern` matched against a Control-clicked URL, plus `action`).
-  - Actions are `tuicano` one-shots: `tuicano send` from a keybind, `tuicano approvals approve <id>`
-    bound to the gate key, `tuicano approvals --json` for a status line.
-  - Panes: a `split` pane per channel; a **`popup`** for the approval card, because a popup is
-    session-modal, receives all input including Escape, has no pane id and emits no pane lifecycle
-    events — which is exactly what an approval card wants. Users bind keys in herdr's `config.toml`
-    as `[[keys.command]]` with `type = "plugin_action"` and the qualified action id.
-  - Events: `pane.agent_detected` and `worktree.created` are the interesting ones, and the injected
-    `HERDR_PLUGIN_CONTEXT_JSON` (workspace, tab, focused pane, worktree, agent, selected text,
-    clicked URL) is what a bridge turns into a `--to` or a context line. Also injected and useful:
-    `HERDR_SOCKET_PATH`, `HERDR_PLUGIN_ROOT`, `HERDR_PLUGIN_STATE_DIR`, `HERDR_TAB_ID`, `HERDR_PANE_ID`.
-  - Ownership: herdr runs `[[startup]]` hooks as one-shot commands and expects a plugin to stop its
-    background processes before the parent command or pane exits, so the plugin **bridges to** the
-    daemon and never spawns or supervises it ([§4.5](#45-who-owns-the-daemon)).
-  - Nothing of this phase exists yet. It is written down because the seam it needs — a daemon on a
-    local socket, with one-shot commands for the gate — is the seam P0 built.
+- **P6 — the herdr plugin (built).** `herdr-plugin/` holds the manifest, the bridge that the manifest
+  launches, and its own README: a herdr action opens a split pane on a channel, the approval card is a
+  popup (session-modal, all input including Escape, no pane id, no lifecycle events — what a card you
+  must answer wants), the status one-shot notifies one line, `ask` sends the pane's selected text into
+  the team, `lend` lends the focused pane's folder and `tab.closed`/`workspace.closed` give it back,
+  `pane.agent_detected`/`worktree.created` attach the pane's context, and a clicked `tucano://` link
+  opens in TUIcano instead of a browser. Two client flags exist for it: `--open` (a screen name, a
+  `#channel`, an `@handle` or an id) and `--popup` (the approval card decides one thing and goes away).
+
+  **Ownership, hardened**: every call to the core goes through `--no-spawn`, so the plugin can never
+  start a second core on a data folder, and every hook is a one-shot — nothing of the plugin outlives
+  its pane. With no daemon listening it notifies the command to run and stops.
+
+  **Verified in a real herdr session** (0.9.5), not only by test: `herdr plugin link` accepts the
+  manifest and returns **no warnings**, so all four event names are valid; the status action answers a
+  line; `ask` put the selected text into the team and the router answered it; `lend` lent a folder that
+  appeared on the agent and `tab.closed` took it back; the events recorded a pane's worktree and agent
+  into the plugin's state; the pane entrypoint draws the conversation it was told to open and stays
+  alive as long as its pane; and the approval popup does not open when nothing is waiting. The bridge's
+  pure parts (context, links, target resolution, state) have their own tests.
+
+  Four things the implementation taught, which the plan above had wrong:
+
+  1. **`--env` on a plugin pane did not reach the pane's process** in this build: a pane opened with
+     `--env TUCANO_DATA=…` still resolved the platform app-data folder, and the client auto-started a
+     core *there*. Nothing the plugin needs may depend on `--env`; the entrypoint resolves the folder
+     itself, and the README says so.
+  2. **`herdr plugin pane open` needs a target for a split, spelled differently from its help.**
+     `--placement split` without one is an error, the request field is `target_pane_id`
+     (`herdr api schema --json` → `PluginPaneOpenParams`), and passing `--workspace` together with a
+     target is rejected — the target already decides the workspace.
+  3. **A mention is not a link.** herdr matches a link handler's pattern against a *clicked URL*, and a
+     bare `@handle` in message text is not one, so mentions cannot be link handlers at all; the `ask`
+     action is what carries selected text to an agent. `tucano://agent/<id>` is handled, because that
+     *is* a URL.
+  4. **An entrypoint that dies looks like "the pane never opened".** herdr closes a pane whose command
+     has exited, and `herdr plugin log list` was empty for us, so the first run of the pane entrypoint
+     failed invisibly (it was called without its environment and threw on `TUICANO_OPEN`). Run the
+     entrypoint by hand in a pty — that is also where the `--open` bug surfaced, in which the flag's
+     value was parsed as a command name.
+
+  What is left for P6, and it is the user's to do: paste the `[[keys.command]]` bindings from
+  `herdr-plugin/README.md` into their own `config.toml` — the plugin never writes there — and then
+  `herdr config check`. The manifest's action titles are English because herdr renders them from the
+  manifest, where there is no runtime and therefore no language to ask for.
+
 - **P7 — removing Electron (planned, gated on parity, and on three replacements).** Only worth
   doing once the matrix is green with the window still there: parity is measured *against* the
   reference implementation, and deleting the reference before it is met means nobody can tell what

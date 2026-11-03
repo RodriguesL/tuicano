@@ -296,7 +296,7 @@ async function main(): Promise<void> {
 
   // The command is the first word that is not a flag: `--no-spawn cli snapshot`
   // and `cli snapshot --no-spawn` mean the same thing.
-  const [mode] = positional(argv, ['--graphics', '--to', '--data', '--theme'])
+  const [mode] = positional(argv, ['--graphics', '--to', '--data', '--theme', '--open'])
   const info = argv.includes('--graphics-info')
   const draws = mode === 'tui' || mode === undefined
   runtime.dataDir = resolveDataDir(argv)

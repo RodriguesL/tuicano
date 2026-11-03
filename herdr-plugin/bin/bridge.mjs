@@ -281,7 +281,7 @@ function commandAsk(env) {
     notify('TUIcano', 'no conversation to ask in', env)
     return
   }
-  const r = core(['send', text, '--to', conversation.id, '--json'], env)
+  const r = read(['send', text, '--to', conversation.id, '--json'], env)
   notify('TUIcano', r.ok ? `asked in ${titleOf(snap, conversation)}` : `could not ask: ${r.stderr || r.stdout}`, env)
 }
 
@@ -326,9 +326,14 @@ function commandOpenLink(env) {
   }
   const snap = snapshot(env)
   if (snap.error) return noDaemon(env)
-  // An artifact lives in the conversation that showed it: open *that*, so the pane
-  // has the card and the file in front of it. An agent link opens its DM.
-  const conversationId = link.kind === 'artifact' ? snap.artifacts.find((a) => a.id === link.id)?.conversationId : snap.conversations.find((c) => c.kind === 'dm' && c.name === link.id)?.id
+  // An artifact lives in the conversation that showed it: open *that*, so the pane has
+  // the card and the file in front of it. An agent link opens its DM, which the core
+  // creates if the agent has none yet (`openDm` is what the sidebar's agent rows use).
+  let conversationId = link.kind === 'artifact' ? snap.artifacts.find((a) => a.id === link.id)?.conversationId : snap.conversations.find((c) => c.kind === 'dm' && c.name === link.id)?.id
+  if (!conversationId && link.kind === 'agent') {
+    const opened = read(['cli', 'openDm', JSON.stringify({ agentId: link.id })], env)
+    if (opened.ok) conversationId = JSON.parse(opened.stdout || 'null') ?? undefined
+  }
   if (!conversationId) {
     notify('TUIcano', `that ${link.kind} is not in this team any more`, env)
     return

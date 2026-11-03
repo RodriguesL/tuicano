@@ -70,6 +70,19 @@ No agent work runs in the window or the main process: everything goes through th
 - **Small and direct.** Prefer the simple version that works over infrastructure for cases that don't exist yet. New dependencies need a reason.
 - **Commits** are small and focused, with a message in the imperative ("Add …", "Fix …").
 
+## Working in this fork
+
+This is an independent fork (see [NOTICE](NOTICE)): commits are the fork's own, and upstream is kept
+as a fetch-only remote for reference. Two rules that were learned the hard way:
+
+- **Never `git stash` in the shared worktree.** Lanes work in the same checkout at the same time, and a
+  `pop` that aborts takes other lanes' changes with it. If a lane needs a clean tree, give it a scratch
+  clone or a temporary worktree of its own.
+- **A phase's evidence has to be re-runnable.** A screen tour that only existed in a session proved
+  nothing; the ones that count live in `test/` and in `scripts/`, and they are what the phases are
+  checked against.
+
+
 ## Pull requests
 
 1. Open an issue first for anything bigger than a fix, so we can agree on the approach.
