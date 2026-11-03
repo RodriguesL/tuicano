@@ -189,6 +189,23 @@ export function TuiApp(): ReactNode {
       <OverlayContext.Provider value={api}>
         <Box flexDirection="column" height={height}>
           <Banner />
+          {/* The body stays mounted while an overlay is up, and is only hidden: an
+              overlay that *replaced* it unmounted the screen under it, so a screen's
+              own state was lost every time it opened a prompt — the introduction
+              restarted at step one after its name prompt, which is exactly what
+              confirming seemed not to do. */}
+          <Box flexDirection="column" flexGrow={1} display={overlay ? 'none' : 'flex'}>
+            {intro ? (
+              <Onboarding state={state} active={chrome} />
+            ) : (
+              <Box flexGrow={1}>
+                <Sidebar state={state} active={chrome && focus === 'sidebar'} width={sidebarWidth} />
+                <Box flexDirection="column" flexGrow={1} paddingLeft={1} overflow="hidden">
+                  {renderView(view, screen, setImage)}
+                </Box>
+              </Box>
+            )}
+          </Box>
           {overlay ? (
             <OverlayHost
               overlay={overlay}
@@ -200,16 +217,7 @@ export function TuiApp(): ReactNode {
                 setNote(L(`tema: ${name}`, `theme: ${name}`))
               }}
             />
-          ) : intro ? (
-            <Onboarding state={state} active={chrome} />
-          ) : (
-            <Box flexGrow={1}>
-              <Sidebar state={state} active={chrome && focus === 'sidebar'} width={sidebarWidth} />
-              <Box flexDirection="column" flexGrow={1} paddingLeft={1} overflow="hidden">
-                {renderView(view, screen, setImage)}
-              </Box>
-            </Box>
-          )}
+          ) : null}
           {help ? <Help /> : null}
           <Text backgroundColor={theme.statusBg} color={theme.statusText}>
             {status}

@@ -1,13 +1,15 @@
 # The Linux installers: a .deb and an AppImage for x64 and ARM64, built on Ubuntu.
-# The Mac build is signed and notarized on a Mac (scripts/release.sh) and creates the
-# release; once it's published, this attaches the Linux files and their update feeds
+# Upstream's desktop flow, kept and run by hand here: the Mac build is signed and
+# notarized on a Mac (scripts/release.sh) and creates upstream's release; this then
+# attaches the Linux files and their update feeds
 # (latest-linux.yml, latest-linux-arm64.yml) to the same release. A pull request
 # that touches the packaging builds them too, without publishing anything.
 name: Linux
 
 on:
-  release:
-    types: [published]
+  # No `release: published` trigger in this fork: its releases carry the terminal client,
+  # not desktop installers (see README, "What this fork is"). The desktop build is
+  # upstream's and stays available by hand, with the tag as an input.
   workflow_dispatch:
     inputs:
       tag:

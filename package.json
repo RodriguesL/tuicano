@@ -1,6 +1,6 @@
 {
   "name": "tuicano",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "private": true,
   "description": "TUIcano: a terminal client for Tucano's core. A fork of eduwxyz/tucano (Apache-2.0); the Electron app is upstream's.",
   "homepage": "https://github.com/RodriguesL/tuicano",

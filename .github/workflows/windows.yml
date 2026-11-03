@@ -1,13 +1,15 @@
 # The Windows installer: a per-user NSIS .exe for x64, built on Windows and not
-# code-signed (install.ps1 installs it without a SmartScreen warning). The Mac build
-# creates the release (scripts/release.sh); once it's published, this attaches the
-# installer, its blockmap and the update feed (latest.yml) to the same release. A pull
+# code-signed (install.ps1 installs it without a SmartScreen warning). Upstream's desktop
+# flow, kept and run by hand here: the Mac build creates upstream's release
+# (scripts/release.sh), and this attaches the installer, its blockmap and the update feed
+# (latest.yml) to it. A pull
 # request that touches the packaging builds it too, without publishing anything.
 name: Windows
 
 on:
-  release:
-    types: [published]
+  # No `release: published` trigger in this fork: its releases carry the terminal client,
+  # not desktop installers (see README, "What this fork is"). The desktop build is
+  # upstream's and stays available by hand, with the tag as an input.
   workflow_dispatch:
     inputs:
       tag:

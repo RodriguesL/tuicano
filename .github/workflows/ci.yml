@@ -1,5 +1,8 @@
-# Every pull request and every push to main: typecheck, tests and the app's
-# build, on macOS, Linux and Windows, so a change can't break one of them unnoticed.
+# Every pull request and every push to main: typecheck, tests, the window's build and
+# the terminal client's build, on macOS, Linux and Windows, so a change can't break one
+# of them unnoticed. The tour runs in a real pty on Linux only: it is the fork's
+# end-to-end evidence (docs/spec-tuicano.md §5), and one operating system is enough for
+# a terminal client.
 name: CI
 
 on:
@@ -35,3 +38,4 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run build:tui

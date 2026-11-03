@@ -38,9 +38,28 @@ ROWS, COLS, XPIX, YPIX = 45, 110, 990, 810
 
 # One entry per stop: what it is, the keys (each written on its own), and the view the
 # status line must be showing afterwards.
-TOUR = [
+TOUR_CLEAN = [
+    # A fresh folder: the client asks the first question of the introduction, and
+    # nothing of the sample team is anywhere.
+    ('clean start: the introduction', [], 'What should the agents call you'),
+    ('and no sample team', [], 'step 1 of 5', 1.5, '@lia'),
+    ('the help opens over it', ['?'], 'TUIcano', 1.5),
+    ('and closes again', ['x'], 'Enter continue', 1.5, 'docs/spec-tuicano.md'),
+    # The introduction used to restart at step one whenever it opened its own prompt,
+    # because the overlay replaced the body and unmounted the screen under it: confirming
+    # the name looked like nothing happening. Two Enters walk it forward.
+    ('the intro opens its name prompt', ['\r'], 'Your name', 2.5),
+    # Confirming it must move the wizard on to step 2, the harnesses (a fresh install
+    # has none picked yet, so it waits there), and the name prompt has to be gone. The
+    # wizard's own step line sits behind the modal, so this checks what is drawn.
+    ('confirming the name walks on to the harnesses', ['\r'], 'log in', 2.5),
+]
+
+TOUR_SEEDED = [
     ('boot: the sidebar and the default conversation', [], '· conversation ·'),
-    ('the introduction is not shown (TUCANO_SEED=1)', [], '· conversation ·'),
+    ('no introduction when the team exists', [], '· conversation ·', 1.0, 'Welcome to Tucano'),
+    ('the help opens, on ?', ['?'], 'docs/spec-tuicano.md'),
+    ('the help closes on any key', ['x'], '? help', 'docs/spec-tuicano.md'),
     ('approvals, on a', ['a'], '· approvals ·'),
     ('usage, on u', ['u'], '· usage ·'),
     ('connectors, on c', ['c'], '· connectors ·'),
@@ -51,15 +70,19 @@ TOUR = [
     ('settings, on ,', [','], '· settings ·'),
     ('a new agent, on g', ['g'], '· new-agent ·'),
     ('the Tuca, on t', ['t'], '· tuca ·'),
-    # The overlays, and the one that regressed: the app's own handler closes the help
-    # and the image viewer, so it must stay listening while they are up.
-    ('the help opens, on ?', ['?'], 'docs/spec-tuicano.md'),
-    ('the help closes on any key', ['x'], '? help', 'docs/spec-tuicano.md'),
     ('the theme picker, on Ctrl+T', ['\x14'], '╔'),
     ('the theme picker closes on Esc', ['\x1b'], '? help', '╔'),
-    ('back to a conversation, on 1', ['1'], '· conversation ·'),
-
+    ('talk to a channel, on 1', ['1'], '· conversation ·'),
+    ('write and send, on i', ['i'], ''),
+    ('the message in the composer', ['ola do tour'], '> ola do tour'),
+    ('send it, on Enter', ['\r'], 'ola do tour', 2.0, '> ola do tour'),
+    ('the reply arrives', [], 'Lia', 8.0),
 ]
+
+# One entry per stop: (what it is, the keys — each written on its own — and either a
+# marker that must appear, or the "view" the status line must be showing), plus the
+# optional seconds to settle and text that must NOT be there.
+TOUR = TOUR_SEEDED if os.environ.get('TOUR_SEEDED') == '1' else TOUR_CLEAN
 
 ANSI = re.compile(rb'\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[()][A-Z0-9]|\x1b[=>]|[\x00-\x08\x0b-\x1f]')
 
@@ -82,13 +105,14 @@ def main() -> int:
         TUCANO_FAKE_ENGINES='1',
         # The sample team, so there is something on every screen. Without it the client
         # correctly starts empty and asks the first question of the introduction.
-        TUCANO_SEED='1',
+        TUCANO_SEED='1' if os.environ.get('TOUR_SEEDED') == '1' else '0',
         TERM='xterm-256color',
         # The tour's markers are the status line's words, and the client speaks the
         # workspace's language (Portuguese by default), so the tour pins it to English.
         # The other side is covered by test/tuicano-language.test.tsx.
         TUCANO_LOCALE='en',
     )
+    print(f"tour: {'seeded (the sample team)' if os.environ.get('TOUR_SEEDED') == '1' else 'clean start (the introduction)'} — {len(TOUR)} stops")
     daemon = None
     pid = None
     fd = None
@@ -129,8 +153,12 @@ def main() -> int:
 
         pump(8)
         for step in TOUR:
+            # (what, keys, marker) with an optional settle in seconds and an optional
+            # marker that must NOT be there: a number is the settle, a string is what
+            # has to be gone.
             label, keys, marker = step[0], step[1], step[2]
-            absent = step[3] if len(step) > 3 else None
+            settle = step[3] if len(step) > 3 and isinstance(step[3], (int, float)) else 1.2
+            absent = step[4] if len(step) > 4 else (step[3] if len(step) > 3 and isinstance(step[3], str) else None)
             watched = marker
             # What is drawn from this key on: an assertion that something closed must
             # not be satisfied (or defeated) by a frame from before the key.
@@ -138,7 +166,7 @@ def main() -> int:
             for key in keys:
                 os.write(fd, key.encode())
                 pump(0.3)  # a key and the next one are separate reads, never one write
-            pump(1.2)
+            pump(settle)
             frame = strip(bytes(out[start:]))
             ok = watched in frame and (absent is None or absent not in frame)
             print(f'{"ok  " if ok else "MISS"} {label}  (expected {watched!r}' + (f', no {absent!r})' if absent else ')'))

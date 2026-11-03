@@ -1,0 +1,77 @@
+# A release every time main moves, when the version in package.json says so.
+#
+# The version is the trigger, which is the convention this repository already uses:
+# `scripts/release.sh` refuses to publish without a CHANGELOG section for the version, and
+# that section *is* the release's notes. So a release is made by bumping `version` in
+# package.json (and adding its CHANGELOG section) in the pull request; merging it to main
+# publishes that version. If the version is already released, this runs, says so, and
+# stops — merging something that does not bump the version must not make a release.
+#
+# What a release carries: the terminal client's bundle (the fork's own product) and the
+# notes. Not desktop installers — the Electron app is upstream's and is not maintained
+# here (see README, "What this fork is"); linux.yml and windows.yml build those by hand.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the tag lives in history: know whether it is already there
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      # The same gate as CI: nothing is released that does not pass on its own.
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:tui
+      - name: The version, and whether it is already out
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v$VERSION is already released; bump the version in package.json to release again."
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: The client's bundle
+        if: steps.version.outputs.released == 'false'
+        run: tar -czf "tuicano-${{ steps.version.outputs.version }}.tar.gz" -C out tuicano
+      - name: The notes, from this version's CHANGELOG section
+        if: steps.version.outputs.released == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" { on = 1; next } /^## \[/ { on = 0 } /^\[[0-9.]+\]: / { on = 0 } on' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "CHANGELOG.md has no section for $VERSION; write it first (each section is the release's notes)." >&2
+            exit 1
+          fi
+      - name: Publish
+        if: steps.version.outputs.released == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v$VERSION" \
+            --title "TUIcano v$VERSION" \
+            --notes-file notes.md \
+            "tuicano-$VERSION.tar.gz#TUIcano $VERSION — the terminal client (unpack and run bin/tuicano, or install with scripts/install-tui.sh)"
